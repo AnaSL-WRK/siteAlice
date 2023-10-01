@@ -92,9 +92,3 @@ function getRandomPainting() {
 // Call the function to load a random painting when the page loads
 getRandomPainting();
 
-
-
-// Refresh the page every 24 hours (86400000 milliseconds)
-setInterval(() => {
-    location.reload();
-}, 86400000);
