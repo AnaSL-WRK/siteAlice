@@ -71,8 +71,11 @@ const paintings = [
 
 function getRandomPainting() {
     document.addEventListener('DOMContentLoaded', function() {
-    const randomIndex = Math.floor(Math.random() * paintings.length);
-    const randomPainting = paintings[randomIndex];
+        const date = new Date();
+      const dayOfMonth = date.getDate();
+      const randomPainting = paintings[dayOfMonth % paintings.length];
+
+
 
     let randomPaintingElement = document.getElementById('randomPainting');
     const paintingDescriptionElement = document.getElementById('paintingDescription');
