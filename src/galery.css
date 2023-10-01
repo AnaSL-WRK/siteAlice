@@ -1,0 +1,222 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: white !important;
+}
+
+a:visited, a:hover, a:active {
+  text-decoration: none; /* Remove underline */
+  color: inherit; /* Inherit the text color from the parent element */
+  /* Add any other desired styles here */
+}
+
+a{
+  text-decoration: none !important; /* Remove underline */
+  color: inherit !important; /* Inherit the text color from the parent element */
+  /* Add any other desired styles here */
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    
+}
+
+.container .logo {
+    margin: 20px 10px 1px 10px; /* Optional: Add margin to the logo for spacing */
+}
+
+.container .heading h1{
+  font-size: 40px; 
+  border-bottom: 3px solid navy ;
+  padding: 10px 50px; /* or how longer you want */
+  margin: 30px;
+}
+
+.line {
+    height: 1px;
+    background-color: navy;
+    margin: 20px 10% 8px 10%;
+}
+
+
+.navbar-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.navbar-nav ul li {
+    list-style: none;
+    display: inline-block;
+    position: relative;
+    margin: 0 20px;
+ 
+}
+
+.navbar-nav ul li a {
+   text-decoration: none;
+   color:navy;
+   text-transform: uppercase;
+}
+
+.navbar-nav ul li::after {
+    content: '';
+    height: 3px;
+    width: 0;
+    background-color: navy;
+    position: absolute;
+    bottom: -5px;
+    left: 0px;
+    transition: 0.5s;
+}
+
+.navbar-nav ul li:hover::after {
+    width: 100%;
+  
+}
+
+
+
+.col{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.container .box{
+    display: flex;
+    flex-direction: row;
+    
+    justify-content: space-between;
+ 
+}
+
+.container .box .dream{
+  display: flex;
+  flex-direction: column;
+  width: 32.5%;
+
+}
+
+.container .box .dream img{
+  width: 100%;
+  padding-bottom: 15px;
+  border-radius: 5px;
+}
+
+
+
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 96%;
+  background-color: rgba(0, 0, 0, 0.5); /* Dark overlay color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+}
+
+.image-container:hover .overlay {
+  opacity: 1;
+}
+
+
+
+.image-container {
+  position: relative;
+  display: inline-block;
+}
+
+.overlay p {
+  color: #fff; /* Text color */
+  font-size: 18px;
+  text-align: center;
+  display: none; /* Initially hidden */
+}
+
+.image-container:hover .overlay p {
+  display: block;
+}
+
+
+
+
+
+
+
+
+.footer-basic {
+    padding:20px 0;
+    color:navy;
+  }
+  
+  .footer-basic ul {
+    padding:0;
+    list-style:none;
+    text-align:center;
+    font-size:18px;
+    line-height:1.6;
+    margin-bottom:0;
+  }
+  
+  .footer-basic li {
+    padding:0 10px;
+  }
+  
+  .footer-basic ul a {
+    color:inherit;
+    text-decoration:none;
+    opacity:0.8;
+  }
+  
+  .footer-basic ul a:hover {
+    opacity:1;
+  }
+  
+  .footer-basic .social {
+    text-align:center;
+    padding-bottom:25px;
+  }
+  
+  .footer-basic .social > a {
+    font-size:24px;
+    width:40px;
+    height:40px;
+    line-height:40px;
+    display:inline-block;
+    text-align:center;
+    border-radius:50%;
+    border:1px solid #ccc;
+    margin:0 8px;
+    color:inherit;
+    opacity:0.75;
+  }
+  
+  .footer-basic .social > a:hover {
+    opacity:0.9;
+  }
+  
+  .footer-basic .copyright {
+    margin-top:15px;
+    text-align:center;
+    font-size:13px;
+    color:#aaa;
+    margin-bottom:0;
+  }
