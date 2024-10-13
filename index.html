@@ -30,23 +30,25 @@
     
 
     <div class="container">
-        <h1 style=" margin: 0 0 10px 0 ;font-size: 40px">Pintura do dia</h1>
+        <h1 style=" margin: 0 0 30px 0 ;font-size: 40px">Pintura do dia</h1>
 
-        <div class="row" style=" margin: 10px 0 0 0 ;">
-            <div class="col">
-                <img id="randomPainting"   alt="painting" style="width: 450px; height: 450px;">
-            </div>
-
-
-            <div class="col" style="padding-bottom: 100px;">
-                <!--<h1>Hello World</h1>-->
-                <h1 style="font-size: 30px;" id="paintingDescription" >Lorem Ipsum</h1>
-               
+        <div class="painting-container">
+            <img id="randomPainting" src="" alt="Random Painting" class="painting-image" />
+            
+            
+            <div class="painting-details">
+                <p id="paintingDescription" class="painting-description"></p>
+                <p id="paintingYear" class="painting-year"></p>
+                <p id="paintingDimensions" class="painting-dimensions"></p>
             </div>
 
 
         </div>
     </div>
+
+
+
+
     <div class="line"></div>
     <div class="footer-basic">
         <footer style="text-align: center;">
