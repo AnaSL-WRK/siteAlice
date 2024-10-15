@@ -153,6 +153,33 @@ const paintings = [
 ];
 
 
+const photos = [];
+
+for (let i = 1; i <= 50; i++) {
+    photos.push({
+        imageSrc: `src/img/foto/estruturas/e${i}.jpg`,
+    });
+}
+
+for (let i = 1; i <= 35; i++) {
+    photos.push({
+        imageSrc: `src/img/foto/livre/tl${i}.jpg`,
+    });
+}
+
+for (let i = 1; i <= 113; i++) {
+    photos.push({
+        imageSrc: `src/img/foto/natureza/n${i}.jpg`,
+    });
+}
+
+for (let i = 1; i <= 20; i++) {
+    photos.push({
+        imageSrc: `src/img/foto/praia/p${i}.jpg`,
+    });
+}
+
+
 function getRandomPainting() {
     document.addEventListener('DOMContentLoaded', function() {
         const date = new Date();
@@ -174,6 +201,20 @@ function getRandomPainting() {
     });
 }
 
-// Call the function to load a random painting when the page loads
-getRandomPainting();
+function getRandomPhoto() {
+    document.addEventListener('DOMContentLoaded', function() {
+        const date = new Date();
+        const dayOfMonth = date.getDate();
+        const randomFoto = photos[dayOfMonth % photos.length];
 
+        let randomPhotoElement = document.getElementById('randomFoto');
+
+        // Set the image source
+        randomPhotoElement.src = randomFoto.imageSrc;
+
+     
+    });
+}
+
+getRandomPainting();
+getRandomPhoto();
