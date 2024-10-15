@@ -25,7 +25,40 @@ a{
   color: inherit !important; /* Inherit the text color from the parent element */
   /* Add any other desired styles here */
 }
+.submenu {
+  position: absolute;
+  background-color: #f9f9f9;
+  width: 150px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  margin-top: -50px;
+  transition: all ease 0.5s;
+  text-align: center;
+  opacity: 0; 
+  z-index: -999;
+}
 
+ul li:hover .submenu {
+  display: block;
+  z-index: 99; 
+  opacity: 1; 
+  margin-top: 0;
+}
+
+ul .submenu{
+  padding-left: 0 !important;
+}
+ul li:hover .submenu li a {
+  display: block;
+  width: 100%;
+  padding: 10px 0; 
+  text-align: center; 
+  padding-left: 0 !important;
+  text-decoration: none; 
+}
+
+ul li:hover .submenu li a:hover {
+  background-color: #f0f0f0; 
+}
 .container {
     display: flex;
     flex-direction: column;
