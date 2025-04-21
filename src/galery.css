@@ -277,23 +277,6 @@ h2{
   width: 300px;
 }
 
-/* Responsive layout */
-@media (max-width: 768px) {
-  .modal-content {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .modal-content img {
-    width: 100%;
-    height: auto;
-  }
-  .modal-description {
-    width: 100%;
-    padding-left: 0;
-    padding-top: 20px;
-  }
-}
 
 .footer-basic {
     padding:20px 0;
@@ -353,3 +336,100 @@ h2{
     color:#aaa;
     margin-bottom:0;
   }
+
+/* Mobile / small screen adjustments */
+@media screen and (max-width: 500px) {
+  .modal {
+    padding: 20px;
+  }
+
+  .modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column !important;
+    justify-content: space-evenly;
+    align-items: center;
+    max-height: 90%;
+    height: auto;
+    width: 90%;
+    padding: 15px;
+    overflow-y: auto;
+    align-items: center;
+  }
+
+  .modal-content img.landscape {
+    width: auto;
+    height: auto;
+    max-height: 25vh;
+    object-fit: contain;
+    margin-bottom: 20px;
+  }
+
+  .modal-content img.portrait {
+    width: auto;
+    height: auto;
+    max-height: 45vh;
+    object-fit: contain;
+    margin-bottom: 20px;
+  }
+
+  .modal-description {
+    width: 100%;
+    padding: 0 10px;
+    text-align: left;
+  }
+
+  .close {
+    top: 5px;
+    right: 15px;
+    font-size: 24px;
+  }
+}
+
+
+/* Tablets / medium screen adjustments */
+@media screen and (max-width: 1024px) {
+  .modal {
+    padding: 20px;
+  }
+
+  .modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column !important;
+    justify-content: space-evenly;
+    align-items: center;
+    max-height: 90%;
+    height: auto;
+    width: 90%;
+    padding: 15px;
+    overflow-y: auto;
+    align-items: center;
+  }
+
+  .modal-content img.landscape {
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin-bottom: 20px;
+  }
+
+  .modal-content img.portrait {
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin-bottom: 20px;
+  }
+
+  .modal-description {
+    width: 100%;
+    padding: 0 10px;
+    text-align: left;
+  }
+
+  .close {
+    top: 5px;
+    right: 15px;
+    font-size: 24px;
+  }
+}
