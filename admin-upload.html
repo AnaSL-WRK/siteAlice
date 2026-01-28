@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Upload - Alice nas Artes</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="stylesheet" href="src/styles/galery.css">
+  <style>
+    body { background: white; }
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .card { border: 1px solid #dfe3e8; border-radius: 12px; padding: 16px; margin: 16px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    label { display: block; text-align: left; color: navy; font-weight: 600; margin-top: 8px; }
+    input, select, button, textarea {
+      width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #cfd8dc; }
+    button { background: navy; color: white; border: none; cursor: pointer; }
+    button.secondary { background: #6b7280; }
+    button.danger { background: #b91c1c; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status { margin-top: 10px; color: navy; text-align: left; }
+
+    .columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .col { border: 1px dashed #9aa4b2; border-radius: 12px; padding: 10px; min-height: 180px; }
+    .col h3 { font-size: 16px; margin: 0 0 8px 0; color: navy; }
+
+    .item { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 8px; background: #fff; }
+    .item.dragging { opacity: 0.5; }
+    .item img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; }
+    .item .meta { text-align: left; }
+    .item .meta .t { font-weight: 700; font-size: 13px; }
+    .item .meta .s { font-size: 12px; color: #374151; }
+    .item.selected { outline: 3px solid navy; }
+
+    .small { font-size: 12px; color: #374151; }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <h1 style="color: navy;">Admin</h1>
+    <p class="small">Só a conta Google autorizada consegue fazer alterações.</p>
+
+    <div class="card">
+      <h2 style="color: navy; font-size: 18px;">1) Login</h2>
+      <div id="gbtn"></div>
+      <div id="who" class="status"></div>
+    </div>
+
+    <div class="card" id="adminArea" style="display:none;">
+      <h2 style="color: navy; font-size: 18px;">2) Upload</h2>
+      <div class="row">
+        <div>
+          <label>O que vais adicionar?</label>
+          <select id="uploadKind">
+            <option value="fotografia">Fotografia</option>
+            <option value="pinturas">Pinturas</option>
+            <option value="mista">Técnica mista</option>
+          </select>
+        </div>
+        <div>
+          <label>Coluna</label>
+          <select id="uploadCol">
+            <option value="1">Coluna 1</option>
+            <option value="2">Coluna 2</option>
+            <option value="3">Coluna 3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" id="uploadPhotoFields">
+        <div>
+          <label>Categoria (fotografia)</label>
+          <select id="uploadCategory">
+            <option value="estruturas">Estruturas</option>
+            <option value="praia">Praia</option>
+            <option value="natureza">Natureza</option>
+            <option value="tema_livre">Tema Livre</option>
+          </select>
+        </div>
+        <div>
+          <label>Ano</label>
+          <input id="uploadYear" type="number" />
+        </div>
+      </div>
+
+      <label id="uploadTitleLabel">Título</label>
+      <input id="uploadTitle" />
+
+      <div id="uploadPaintFields" style="display:none;">
+        <div class="row">
+          <div>
+            <label>Técnica</label>
+            <input id="uploadTechnique" placeholder="ex: Acrílico sobre tela" />
+          </div>
+          <div>
+            <label>Dimensões</label>
+            <input id="uploadDimensions" placeholder="ex: 70 x 50 cm" />
+          </div>
+        </div>
+      </div>
+
+      <label>Imagem</label>
+      <input id="uploadFile" type="file" accept="image/*" />
+
+      <div class="row">
+        <button id="btnUpload">Fazer upload</button>
+        <button class="secondary" id="btnReload">Recarregar lista</button>
+      </div>
+      <div id="uploadStatus" class="status"></div>
+    </div>
+
+    <div class="card" id="manageArea" style="display:none;">
+      <h2 style="color: navy; font-size: 18px;">3) Gerir (ordem, editar, remover)</h2>
+
+      <div class="row">
+        <div>
+          <label>Ver</label>
+          <select id="viewKind">
+            <option value="fotografia">Fotografia</option>
+            <option value="pinturas">Pinturas</option>
+            <option value="mista">Técnica mista</option>
+          </select>
+        </div>
+        <div>
+          <label id="viewCategoryLabel">Categoria (fotografia)</label>
+          <select id="viewCategory">
+            <option value="estruturas">Estruturas</option>
+            <option value="praia">Praia</option>
+            <option value="natureza">Natureza</option>
+            <option value="tema_livre">Tema Livre</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="columns" style="margin-top: 12px;">
+        <div class="col" data-col="1"><h3>Coluna 1</h3><div class="list" id="list1"></div></div>
+        <div class="col" data-col="2"><h3>Coluna 2</h3><div class="list" id="list2"></div></div>
+        <div class="col" data-col="3"><h3>Coluna 3</h3><div class="list" id="list3"></div></div>
+      </div>
+
+      <div class="row" style="margin-top: 12px;">
+        <button id="btnSaveOrder">Guardar ordem</button>
+        <button class="secondary" id="btnClearSelection">Limpar seleção</button>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <h3 style="color: navy; font-size: 16px;">Editar item selecionado</h3>
+        <p class="small">Clica numa miniatura para editar. Arrasta para mudar a ordem.</p>
+
+        <input type="hidden" id="editId" />
+
+        <label>Título</label>
+        <input id="editTitle" />
+
+        <div class="row">
+          <div>
+            <label>Ano</label>
+            <input id="editYear" type="number" />
+          </div>
+          <div id="editCategoryWrap">
+            <label>Categoria (fotografia)</label>
+            <select id="editCategory">
+              <option value="estruturas">Estruturas</option>
+              <option value="praia">Praia</option>
+              <option value="natureza">Natureza</option>
+              <option value="tema_livre">Tema Livre</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="editPaintFields">
+          <div class="row">
+            <div>
+              <label>Técnica</label>
+              <input id="editTechnique" />
+            </div>
+            <div>
+              <label>Dimensões</label>
+              <input id="editDimensions" />
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 12px;">
+          <button id="btnSaveMeta">Guardar alterações</button>
+          <button class="danger" id="btnDelete">Apagar</button>
+        </div>
+
+        <div id="manageStatus" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/admin.js"></script>
+</body>
+</html>

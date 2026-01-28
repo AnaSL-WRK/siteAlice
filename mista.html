@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html>
+
     <head>
         <meta charset="utf-8">
         <title>Alice nas Artes</title>
-        <link rel="stylesheet" href="src/galery.css">
+        <link rel="stylesheet" href="src/styles/galery.css">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    
         <script src="https://kit.fontawesome.com/9a41dd9809.js" crossorigin="anonymous"></script>
     </head>
+
 <body>
     <div class="header">
         <div class="container">
@@ -38,189 +39,16 @@
             </div>
         </div>
     </div>
+
     <div class="container">
-        <div class="heading"><h1>Técnica Mista</h1> </div>
-        
-        <div class="box">
-            
-            <!-- colunas (3 deafult) -->
-            <div class = dream>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista0.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>                    
-                    </div>
-                </div>
-
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista1.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista2.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista3.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-             
-               
-            </div>
-
-
-            <div class = dream>
-
-
-                    <div class="image-container">
-                        <img src="src/img/mista/mista4.jpg">
-                        <div class="overlay">
-                            <p>Título em branco… mas mesmo em branco
-                            </br>
-                            2024
-                            </br>
-                            30 x 40 cm</p>
-                        </div>
-                    </div>
-
-
-                    <div class="image-container">
-                        <img src="src/img/mista/mista5.jpg">
-                        <div class="overlay">
-                            <p>Título em branco… mas mesmo em branco
-                            </br>
-                            2024
-                            </br>
-                            70 x 50 cm</p>
-                        </div>
-                    </div>
-
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista6.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista7.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista8.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 30 cm</p>
-                    </div>
-                </div>
-
-               
-               
-            </div>
-
-            <div class = dream>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista10.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista11.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista12.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 30 cm</p>
-                    </div>
-                </div>
-                
-                <div class="image-container">
-                    <img src="src/img/mista/mista13.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 40 cm</p>
-                    </div>
-                </div>
-
-                <div class="image-container">
-                    <img src="src/img/mista/mista9.jpg">
-                    <div class="overlay">
-                        <p>Título em branco… mas mesmo em branco
-                        </br>
-                        2024
-                        </br>
-                        30 x 30 cm</p>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
+        <div class="heading"><h1>Técnica Mista</h1></div>
+        <div class="box" id="box-mista"></div>
     </div>
    
+    <script type="module">
+      import { renderBox } from './src/gallery-modal.js';
+      renderBox({ boxId: 'box-mista', endpoint: '/api/pinturas?type=mista', overlayMode: 'mista' });
+    </script>
     
     <div class="line"></div>
     <div class="footer-basic">
@@ -239,21 +67,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
 
-<script>
-    const imageContainer = document.querySelector('.image-container');
-    const overlay = document.querySelector('.overlay');
-    const text = document.querySelector('.overlay p');
-
-    imageContainer.addEventListener('mouseenter', () => {
-        overlay.style.opacity = '1';
-        text.style.display = 'block';
-    });
-
-    imageContainer.addEventListener('mouseleave', () => {
-        overlay.style.opacity = '0';
-        text.style.display = 'none';
-    });
-</script>
 
 </body>
 </html>
