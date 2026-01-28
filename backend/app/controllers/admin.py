@@ -1,16 +1,17 @@
 import os
 import uuid
+from uuid import UUID
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ..db import get_db
+from ..db.db_init import get_db
 from ..config import settings
 from ..auth import require_admin
-from ..table_fotos import Fotografia
-from ..models_pintura import Pintura
+from ..db.table_fotos import Fotografia
+from ..db.table_pinturas import Pintura
 
 from pydantic import BaseModel
 
@@ -340,7 +341,7 @@ def delete_foto(
     db.commit()
 
     # apagar ficheiro do disco (se existir)
-    # file_path é tipo "media/fotografia/praia/uuid.jpg"
+    # file_path  "media/fotografia/praia/uuid.jpg"
     abs_path = file_path
     if not os.path.isabs(abs_path):
         # garante que resolve a partir da raiz do backend

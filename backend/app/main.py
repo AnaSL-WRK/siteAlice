@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+
 from .config import settings
-from .db import Base, engine
+from .db.db_init import Base, engine
+
 from .controllers.public import router as public_router
 from .controllers.admin import router as admin_router
 

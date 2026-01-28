@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from ..db import get_db
-from ..models import Artwork
+
+from ..db.db_init import get_db
+from ..db.table_fotos import Fotografia
+from ..db.table_pinturas import Pintura
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -10,11 +12,11 @@ def list_fotos(
     category: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Artwork)
+    q = db.query(Fotografia)
     if category is not None:
-        q = q.filter(Artwork.category == category)
+        q = q.filter(Fotografia.category == category)
 
-    items = q.order_by(Artwork.col.asc(), Artwork.col_order.asc()).all()
+    items = q.order_by(Fotografia.col.asc(), Fotografia.col_order.asc()).all()
     
     return [
         {
@@ -35,9 +37,9 @@ def list_pinturas(
     db: Session = Depends(get_db),
 ):
     items = (
-        db.query(Artwork)
-        .filter(Artwork.type == type)
-        .order_by(Artwork.col.asc(), Artwork.col_order.asc())
+        db.query(Pintura)
+        .filter(Pintura.type == type)
+        .order_by(Pintura.col.asc(), Pintura.col_order.asc())
         .all()
     )
     return [
