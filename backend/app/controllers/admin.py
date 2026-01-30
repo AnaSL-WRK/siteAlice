@@ -33,10 +33,10 @@ def sanitize_category(cat: Optional[str]) -> Optional[str]:
     cat = cat.strip()
     return cat if cat else None
 
-def save_upload_to_disk(file: UploadFile, rel_dir: str) -> str:
+def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str) -> str:
     """
-    Guarda ficheiro em settings.media_root/rel_dir/<uuid>.<ext>
-    Retorna file_path relativo (ex: "media/fotografia/praia/<uuid>.jpg")
+    Guarda em: <media_root>/<rel_dir>/<uuid>.<ext>
+    Retorna file_path para BD: "media/<rel_dir>/<uuid>.<ext>"
     """
     if file.content_type not in ALLOWED_MIME:
         raise HTTPException(status_code=400, detail="Unsupported file type")
@@ -44,16 +44,17 @@ def save_upload_to_disk(file: UploadFile, rel_dir: str) -> str:
     ext = ALLOWED_MIME[file.content_type]
     file_id = uuid.uuid4()
 
-    abs_dir = os.path.join(settings.media_root, rel_dir)
+    abs_dir = os.path.join(media_root, rel_dir)
     ensure_dir(abs_dir)
 
-    rel_path = os.path.join(settings.media_root, rel_dir, f"{file_id}{ext}").replace("\\", "/")
-    abs_path = os.path.join(abs_dir, f"{file_id}{ext}")
+    filename = f"{file_id}{ext}"
+    abs_path = os.path.join(abs_dir, filename)
 
     with open(abs_path, "wb") as out:
         out.write(file.file.read())
 
-    return rel_path
+    # isto é o que vai para a BD e que o nginx vai servir
+    return f"media/{rel_dir}/{filename}".replace("\\", "/")
 
 @router.post("/upload/foto")
 def upload_foto(
@@ -89,7 +90,7 @@ def upload_foto(
     max_order = q.scalar() or 0
     next_order = int(max_order) + 1
 
-    file_path = save_upload_to_disk(file, rel_dir)
+    file_path = save_upload_to_disk(file, rel_dir, settings.media_root)
 
     foto = Fotografia(
         category=category,
@@ -153,7 +154,7 @@ def upload_pintura(
 
     # guardar em media/pinturas/ ou media/pinturas/mista/
     rel_dir = "pinturas" if type == "pinturas" else "pinturas/mista"
-    file_path = save_upload_to_disk(file, rel_dir)
+    file_path = save_upload_to_disk(file, rel_dir, settings.media_root)
 
     p = Pintura(
         type=type,
