@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from .config import settings
+from app.config import settings
 
 #Verificar o token de ID do Google no lado do servidor - https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
 def require_admin(authorization: str = Header(default="")):

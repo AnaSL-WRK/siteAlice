@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from ..db.db_init import get_db
-from ..db.table_fotos import Fotografia
-from ..db.table_pinturas import Pintura
+from app.db.db_init import get_db
+from app.db.table_fotos import Fotografia
+from app.db.table_pinturas import Pintura
 
 router = APIRouter(prefix="/api", tags=["public"])
 

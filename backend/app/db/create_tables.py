@@ -1,6 +1,6 @@
-from db.db_init import engine, Base
-from db.table_fotos import Fotografia
-from db.table_pinturas import Pintura
+from app.db.db_init import engine, Base
+from app.db.table_fotos import Fotografia
+from app.db.table_pinturas import Pintura
 
 # garante que os models são importados antes do create_all
 Base.metadata.create_all(bind=engine)

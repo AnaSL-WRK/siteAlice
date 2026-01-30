@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy import Column, String, Integer, DateTime, Text, SmallInteger, func
 from sqlalchemy.dialects.postgresql import UUID
-from .db_init import Base
+from app.db.db_init import Base
 
 class Fotografia(Base):
     __tablename__ = "fotografia"

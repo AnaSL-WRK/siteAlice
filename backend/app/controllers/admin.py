@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ..db.db_init import get_db
-from ..config import settings
-from ..auth import require_admin
-from ..db.table_fotos import Fotografia
-from ..db.table_pinturas import Pintura
+from app.db.db_init import get_db
+from app.config import settings
+from app.auth import require_admin
+from app.db.table_fotos import Fotografia
+from app.db.table_pinturas import Pintura
 
 from pydantic import BaseModel
 

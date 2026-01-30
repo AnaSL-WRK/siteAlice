@@ -2,11 +2,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import settings
-from db.db_init import Base, engine
+from app.config import settings
+from app.db.db_init import Base, engine
 
-from controllers.public import router as public_router
-from controllers.admin import router as admin_router
+from app.controllers.public import router as public_router
+from app.controllers.admin import router as admin_router
 
 Base.metadata.create_all(bind=engine)
 
