@@ -1,4 +1,4 @@
-import { fetchJson } from './api_client.js';
+import { fetchJson, resolveUrl } from './api_client.js';
 
 function createDreamColumn() {
   const d = document.createElement('div');
@@ -20,7 +20,7 @@ function createImageNode(item, overlayMode) {
   container.dataset.id = item.id;
 
   const img = document.createElement('img');
-  img.src = item.url;
+  img.src = resolveUrl(item.url);   // <<< importante
   img.alt = item.title || '';
   container.appendChild(img);
 
@@ -31,7 +31,6 @@ function createImageNode(item, overlayMode) {
     const p = document.createElement('p');
 
     if (overlayMode === 'foto') {
-      // Usually no overlay for photos.
       p.textContent = item.title || '';
     } else if (overlayMode === 'mista') {
       const lines = [];
@@ -56,30 +55,53 @@ function createImageNode(item, overlayMode) {
   return container;
 }
 
-export async function renderBox({ boxId, endpoint, overlayMode = 'none' }) {
+/**
+ * Progressive enhancement:
+ * - se já houver HTML estático dentro do box, mantém-se caso a API falhe
+ * - só substitui quando o fetch der OK
+ */
+export async function renderBox({
+  boxId,
+  endpoint,
+  overlayMode = 'none',
+  timeoutMs = 2000,
+  keepStaticOnFail = true,
+}) {
   const box = document.getElementById(boxId);
   if (!box) return;
 
-  box.innerHTML = '';
+  const hadStatic = box.children.length > 0;
+  const staticHTML = hadStatic ? box.innerHTML : '';
 
-  const col1 = createDreamColumn();
-  const col2 = createDreamColumn();
-  const col3 = createDreamColumn();
+  // Mostra hint só se não houver estático
+  let loading = null;
+  if (!hadStatic) {
+    box.innerHTML = '';
+    const col1 = createDreamColumn();
+    const col2 = createDreamColumn();
+    const col3 = createDreamColumn();
+    box.appendChild(col1);
+    box.appendChild(col2);
+    box.appendChild(col3);
 
-  box.appendChild(col1);
-  box.appendChild(col2);
-  box.appendChild(col3);
-
-  // Loading hint
-  const loading = document.createElement('div');
-  loading.style.padding = '20px';
-  loading.style.color = 'navy';
-  loading.textContent = 'A carregar...';
-  box.appendChild(loading);
+    loading = document.createElement('div');
+    loading.style.padding = '20px';
+    loading.style.color = 'navy';
+    loading.textContent = 'A carregar...';
+    box.appendChild(loading);
+  }
 
   try {
-    const items = await fetchJson(endpoint);
-    loading.remove();
+    const items = await fetchJson(endpoint, { timeoutMs });
+
+    // Agora sim: substituir pelo dinâmico
+    box.innerHTML = '';
+    const col1 = createDreamColumn();
+    const col2 = createDreamColumn();
+    const col3 = createDreamColumn();
+    box.appendChild(col1);
+    box.appendChild(col2);
+    box.appendChild(col3);
 
     for (const it of items) {
       const node = createImageNode(it, overlayMode);
@@ -88,6 +110,11 @@ export async function renderBox({ boxId, endpoint, overlayMode = 'none' }) {
       else col3.appendChild(node);
     }
   } catch (err) {
-    loading.textContent = `Erro a carregar: ${err.message}`;
+    // Falhou: se havia estático, mantém. Se não havia, mostra erro.
+    if (keepStaticOnFail && hadStatic) {
+      box.innerHTML = staticHTML;
+      return;
+    }
+    if (loading) loading.textContent = `Offline (a mostrar versão simples).`;
   }
 }

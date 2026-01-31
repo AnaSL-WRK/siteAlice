@@ -106,7 +106,7 @@ function makeItemEl(data) {
   el.dataset.id = data.id;
 
   const img = document.createElement('img');
-  img.src = data.url;
+  img.src = resolveUrl(data.url);
   img.alt = data.title || '';
 
   const meta = document.createElement('div');
@@ -290,7 +290,7 @@ async function doUpload() {
     endpoint = '/api/admin/upload/pintura';
   }
 
-  const res = await fetch(`${endpoint}`, {
+  const res = await fetch(`${apiBase()}${endpoint}`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${idToken}` },
     body: fd,
