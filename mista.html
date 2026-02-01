@@ -79,45 +79,48 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js" integrity="sha384-BBtl+eGJRgqQAUMxJ7pMwbEyER4l1g+O15P+16Ep7Q9Q+zqX6gSbd85u4mG4QzX+" crossorigin="anonymous"></script>
-
 <script>
   const modal = document.getElementById('universalModal');
   const modalImg = document.getElementById('modalImage');
+  const modalDesc = document.getElementById('modalDesc');
   const closeBtn = modal.querySelector('.close');
+  const modalContent = modal.querySelector('.modal-content');
 
-  function openModal(imgSrc, imgAlt = '') {
-    modalImg.onload = null;
-    modalImg.src = imgSrc;
-    modalImg.alt = imgAlt;
-
-
-    modal.style.display = 'flex';
-  }
-
-  function closeModal() {
+  // fecha (uma vez apenas)
+  closeBtn.addEventListener('click', () => {
     modal.style.display = 'none';
-    modalImg.src = '';
-  }
-
-  // Clique em qualquer imagem-container abre modal
-  document.querySelectorAll('.image-container img').forEach(img => {
-    img.addEventListener('click', (e) => {
-      e.preventDefault();
-      openModal(img.src, img.alt || '');
-    });
   });
 
-  // Fecha no X
-  closeBtn.addEventListener('click', closeModal);
-
-  // Fecha ao clicar fora da imagem (na zona escura)
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
+  window.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
   });
 
-  // Fecha com ESC
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+  // Event delegation: funciona mesmo para elementos adicionados depois
+  document.addEventListener('click', (e) => {
+    const container = e.target.closest('.image-container');
+    if (!container) return;
+
+    const img = container.querySelector('img');
+    const overlay = container.querySelector('.overlay');
+
+    // garante que o onload está definido ANTES de trocar o src
+    modal.style.display = 'none';
+
+    modalImg.onload = () => {
+      const imgWidth = modalImg.naturalWidth;
+
+      modalContent.style.height = (imgWidth > 500) ? '80%' : '100%';
+      modal.style.display = 'flex';
+    };
+
+    modalImg.src = img.src;
+
+    // Mete só texto/HTML útil no modal (e não o <p> com display:none)
+    modalDesc.innerHTML = overlay ? overlay.innerHTML : '';
+
+    // opcional: garantir que o texto aparece no modal
+    const p = modalDesc.querySelector('p');
+    if (p) p.style.display = 'block';
   });
 </script>
 
