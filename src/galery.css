@@ -234,7 +234,6 @@ h2{
   border-radius: 12px;
   width: auto  !important;
   height: 100%;
-  max-width: 1100px !important;
   overflow: clip;
   align-items: end;
 }
