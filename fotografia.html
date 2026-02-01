@@ -64,14 +64,6 @@
       renderBox({ boxId: 'box-tema-livre', endpoint: '/api/fotos?type=fotografia&category=tema_livre', overlayMode: 'none' });
     </script>
 
-      <!-- Universal Modal -->
-    <div id="universalModal" class="modal">
-        <div class="modal-content">
-        <span class="close">&times;</span>
-        <img id="modalImage" src="" alt="">
-        </div>
-    </div>
-
 
     <div class="line"></div>
     <div class="footer-basic">
@@ -100,50 +92,6 @@
             });
         });
     });
-</script>
-<script>
-  const modal = document.getElementById('universalModal');
-  const modalImg = document.getElementById('modalImage');
-  const modalDesc = document.getElementById('modalDesc');
-  const closeBtn = modal.querySelector('.close');
-  const modalContent = modal.querySelector('.modal-content');
-
-  // fecha (uma vez apenas)
-  closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-
-  window.addEventListener('click', (e) => {
-    if (e.target === modal) modal.style.display = 'none';
-  });
-
-  // Event delegation: funciona mesmo para elementos adicionados depois
-  document.addEventListener('click', (e) => {
-    const container = e.target.closest('.image-container');
-    if (!container) return;
-
-    const img = container.querySelector('img');
-    const overlay = container.querySelector('.overlay');
-
-    // garante que o onload está definido ANTES de trocar o src
-    modal.style.display = 'none';
-
-    modalImg.onload = () => {
-      const imgWidth = modalImg.naturalWidth;
-
-      modalContent.style.height = (imgWidth > 500) ? '80%' : '100%';
-      modal.style.display = 'flex';
-    };
-
-    modalImg.src = img.src;
-
-    // Mete só texto/HTML útil no modal (e não o <p> com display:none)
-    modalDesc.innerHTML = overlay ? overlay.innerHTML : '';
-
-    // opcional: garantir que o texto aparece no modal
-    const p = modalDesc.querySelector('p');
-    if (p) p.style.display = 'block';
-  });
 </script>
 
 
