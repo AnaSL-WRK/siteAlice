@@ -51,14 +51,14 @@
     </script>
 
 
-    <!-- Universal Modal -->
-    <div id="universalModal" class="modal">
-    <div class="modal-content">
+    <div id="universalModal" class="custom-modal">
+    <div class="custom-modal-content">
         <span class="close">&times;</span>
         <img id="modalImage" src="" alt="">
-        <div class="modal-description" id="modalDesc"></div>
+        <div class="custom-modal-description" id="modalDesc"></div>
     </div>
     </div>
+
 
     
     <div class="line"></div>
@@ -84,7 +84,7 @@
     const modalImg = document.getElementById('modalImage');
     const modalDesc = document.getElementById('modalDesc');
     const closeBtn = modal.querySelector('.close');
-    const modalContent = modal.querySelector('.modal-content');
+    const modalContent = modal.querySelector('.custom-modal-content');
 
     function openModal(imgSrc, descHtml = '') {
         modal.style.display = 'none';
