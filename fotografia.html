@@ -101,61 +101,50 @@
         });
     });
 </script>
-
 <script>
     const modal = document.getElementById('universalModal');
     const modalImg = document.getElementById('modalImage');
-    const modalDesc = document.getElementById('modalDesc');
     const closeBtn = modal.querySelector('.close');
-    const modalContent = modal.querySelector('.modal-content');
+    const modalContent = document.querySelector('.modal-content');
 
-    function openModal(imgSrc, descHtml = '') {
-        modal.style.display = 'none';
-        modalDesc.innerHTML = descHtml || '';
+  
+    document.querySelectorAll('.image-container').forEach(container => {
+      container.addEventListener('click', () => {
+        const img = container.querySelector('img');
+        const overlay = container.querySelector('.overlay');
+        
+  
+       // Temporarily hide modal while loading image
+      modal.style.display = 'none';
+      modalImg.src = img.src;
 
-        modalImg.onload = () => {
-            const w = modalImg.naturalWidth || 0;
-            modalContent.style.height = (w > 500) ? '80%' : '100%';
-            modal.style.display = 'flex';
-        };
 
-        modalImg.src = imgSrc;
+      // Wait for image to load
+      modalImg.onload = () => {
+        const imgWidth = modalImg.naturalWidth;
+        console.log(imgWidth)
 
-        // fallback se já estiver carregada
-        if (modalImg.complete) modalImg.onload();
+        // Set modal height depending on image width
+        if (imgWidth > 500) {
+          modalContent.style.height = '80%';
+        } else {
+          modalContent.style.height = '100%';
         }
 
-    function closeModal() {
+        // Show modal now that image is ready
+        modal.style.display = 'flex';
+      };
+
+      closeBtn.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+  
+    window.addEventListener('click', (e) => {
+      if (e.target === modal) {
         modal.style.display = 'none';
-        modalImg.src = '';
-        modalDesc.innerHTML = '';
-    }
-
-    document.addEventListener('click', (e) => {
-        const container = e.target.closest('.image-container');
-        if (!container) return;
-
-        const img = container.querySelector('img');
-        if (!img) return;
-
-        const overlay = container.querySelector('.overlay');
-        const desc = overlay ? overlay.innerHTML : '';
-
-        openModal(img.src, desc);
+      }
     });
-
-
-    // Fechar no X
-    closeBtn.addEventListener('click', closeModal);
-
-    // Fechar ao clicar fora do conteúdo (na sombra)
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    // ESC para fechar
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
+      });
     });
 </script>
 
