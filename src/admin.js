@@ -343,12 +343,17 @@ function initUi() {
   setupDropZones();
 }
 
-function initGoogle() {
-  // You MUST replace this with your real client ID.
-  const clientId = 'COLOCA_AQUI_O_TEU_GOOGLE_CLIENT_ID';
 
+function initGoogle() {
+  const clientId = '592470068306-l60g26dm0ria5k2hdeitsn2dk83f6kdr.apps.googleusercontent.com';
+
+  // 1) Inicializa sem auto-select
   window.google.accounts.id.initialize({
     client_id: clientId,
+
+    // evita escolher automaticamente a última conta
+    auto_select: false,
+
     callback: (response) => {
       idToken = response.credential;
       show(qs('adminArea'), true);
@@ -357,6 +362,38 @@ function initGoogle() {
       loadCurrentView();
     },
   });
+
+  // 2) Render do botão normal
+  window.google.accounts.id.renderButton(qs('gbtn'), {
+    theme: 'outline',
+    size: 'large',
+    // opcional: ajuda a incentivar o seletor
+    // type: 'standard',
+    // text: 'signin_with',
+  });
+
+  // 3) Sempre que a página abre, força aparecer a UI de escolha (não é one-tap)
+  //    Isto faz o Google perguntar a conta em vez de "entrar sozinho".
+  window.google.accounts.id.prompt();
+
+  // 4) Botão "Trocar conta"
+  const btn = qs('btnSwitchGoogle');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      // limpa token local
+      idToken = null;
+      show(qs('adminArea'), false);
+      show(qs('manageArea'), false);
+      setStatus('who', 'Sessão terminada. Escolhe outra conta.');
+
+      // remove a "memória" do último login e volta a pedir conta
+      window.google.accounts.id.disableAutoSelect();
+
+      // reabre o prompt (mostra escolha)
+      window.google.accounts.id.prompt();
+    });
+  }
+
 
   window.google.accounts.id.renderButton(qs('gbtn'), { theme: 'outline', size: 'large' });
 }
