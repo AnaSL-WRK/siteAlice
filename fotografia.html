@@ -1134,7 +1134,13 @@
 
         </div>
 
-    
+    <!-- Universal Modal -->
+    <div id="universalModal" class="modal">
+        <div class="modal-content">
+        <span class="close">&times;</span>
+        <img id="modalImage" src="" alt="">
+        </div>
+    </div>
     
     <div class="line"></div>
     <div class="footer-basic">
@@ -1164,6 +1170,48 @@
         });
     });
 </script>
+
+<script>
+  const modal = document.getElementById('universalModal');
+  const modalImg = document.getElementById('modalImage');
+  const closeBtn = modal.querySelector('.close');
+
+  function openModal(imgSrc, imgAlt = '') {
+    modalImg.onload = null;
+    modalImg.src = imgSrc;
+    modalImg.alt = imgAlt;
+
+    // mostra logo (ou podes mostrar só no onload se preferires)
+    modal.style.display = 'flex';
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+    modalImg.src = '';
+  }
+
+  // Clique em qualquer imagem-container abre modal
+  document.querySelectorAll('.image-container img').forEach(img => {
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal(img.src, img.alt || '');
+    });
+  });
+
+  // Fecha no X
+  closeBtn.addEventListener('click', closeModal);
+
+  // Fecha ao clicar fora da imagem (na zona escura)
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Fecha com ESC
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
+
 
 </body>
 </html>
