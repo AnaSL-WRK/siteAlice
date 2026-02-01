@@ -64,7 +64,15 @@
       renderBox({ boxId: 'box-tema-livre', endpoint: '/api/fotos?type=fotografia&category=tema_livre', overlayMode: 'none' });
     </script>
 
-    
+      <!-- Universal Modal -->
+    <div id="universalModal" class="modal">
+        <div class="modal-content">
+        <span class="close">&times;</span>
+        <img id="modalImage" src="" alt="">
+        </div>
+    </div>
+
+
     <div class="line"></div>
     <div class="footer-basic">
         <footer style="text-align: center;">
@@ -93,6 +101,60 @@
         });
     });
 </script>
+
+<script>
+  const modal = document.getElementById('universalModal');
+  const modalImg = document.getElementById('modalImage');
+  const modalDesc = document.getElementById('modalDesc');
+  const closeBtn = modal.querySelector('.close');
+  const modalContent = modal.querySelector('.modal-content');
+
+  function openModal(imgSrc, descHtml = '') {
+    modal.style.display = 'none';
+
+    modalImg.src = imgSrc;
+    modalDesc.innerHTML = descHtml || '';
+
+    modalImg.onload = () => {
+      const w = modalImg.naturalWidth || 0;
+
+      modalContent.style.height = (w > 500) ? '80%' : '100%';
+
+      modal.style.display = 'flex';
+    };
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+    modalImg.src = '';
+    modalDesc.innerHTML = '';
+  }
+
+  document.addEventListener('click', (e) => {
+    const img = e.target.closest('.image-container img');
+    if (!img) return;
+
+    const container = img.closest('.image-container');
+    const overlay = container ? container.querySelector('.overlay') : null;
+    const desc = overlay ? overlay.innerHTML : '';
+
+    openModal(img.src, desc);
+  });
+
+  // Fechar no X
+  closeBtn.addEventListener('click', closeModal);
+
+  // Fechar ao clicar fora do conteúdo (na sombra)
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // ESC para fechar
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
+
 
 </body>
 </html>
