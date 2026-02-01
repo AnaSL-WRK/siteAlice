@@ -103,56 +103,60 @@
 </script>
 
 <script>
-  const modal = document.getElementById('universalModal');
-  const modalImg = document.getElementById('modalImage');
-  const modalDesc = document.getElementById('modalDesc');
-  const closeBtn = modal.querySelector('.close');
-  const modalContent = modal.querySelector('.modal-content');
+    const modal = document.getElementById('universalModal');
+    const modalImg = document.getElementById('modalImage');
+    const modalDesc = document.getElementById('modalDesc');
+    const closeBtn = modal.querySelector('.close');
+    const modalContent = modal.querySelector('.modal-content');
 
-  function openModal(imgSrc, descHtml = '') {
-    modal.style.display = 'none';
+    function openModal(imgSrc, descHtml = '') {
+        modal.style.display = 'none';
+        modalDesc.innerHTML = descHtml || '';
 
-    modalImg.src = imgSrc;
-    modalDesc.innerHTML = descHtml || '';
+        modalImg.onload = () => {
+            const w = modalImg.naturalWidth || 0;
+            modalContent.style.height = (w > 500) ? '80%' : '100%';
+            modal.style.display = 'flex';
+        };
 
-    modalImg.onload = () => {
-      const w = modalImg.naturalWidth || 0;
+        modalImg.src = imgSrc;
 
-      modalContent.style.height = (w > 500) ? '80%' : '100%';
+        // fallback se já estiver carregada
+        if (modalImg.complete) modalImg.onload();
+        }
 
-      modal.style.display = 'flex';
-    };
-  }
+    function closeModal() {
+        modal.style.display = 'none';
+        modalImg.src = '';
+        modalDesc.innerHTML = '';
+    }
 
-  function closeModal() {
-    modal.style.display = 'none';
-    modalImg.src = '';
-    modalDesc.innerHTML = '';
-  }
+    document.addEventListener('click', (e) => {
+        const container = e.target.closest('.image-container');
+        if (!container) return;
 
-  document.addEventListener('click', (e) => {
-    const img = e.target.closest('.image-container img');
-    if (!img) return;
+        const img = container.querySelector('img');
+        if (!img) return;
 
-    const container = img.closest('.image-container');
-    const overlay = container ? container.querySelector('.overlay') : null;
-    const desc = overlay ? overlay.innerHTML : '';
+        const overlay = container.querySelector('.overlay');
+        const desc = overlay ? overlay.innerHTML : '';
 
-    openModal(img.src, desc);
-  });
+        openModal(img.src, desc);
+    });
 
-  // Fechar no X
-  closeBtn.addEventListener('click', closeModal);
 
-  // Fechar ao clicar fora do conteúdo (na sombra)
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
-  });
+    // Fechar no X
+    closeBtn.addEventListener('click', closeModal);
 
-  // ESC para fechar
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
+    // Fechar ao clicar fora do conteúdo (na sombra)
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // ESC para fechar
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+    });
 </script>
 
 
