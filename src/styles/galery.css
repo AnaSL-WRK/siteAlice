@@ -211,30 +211,25 @@ h2{
 .u-modal {
   display: none;
   position: fixed;
-  z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.9);
+  z-index: 999;
+  background-color: rgba(0, 0, 0, 0.9);
   justify-content: center;
   align-items: center;
-  padding: 40px;
+  padding: 5%;
 }
 
 .u-modal-content {
-  background-color: rgba(255, 255, 255, 0.667);
+  background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
   position: relative;
-  flex-direction: row;
-  justify-content: space-evenly;
-  align-items: end;
-  padding: 20px;
-  border-radius: 12px;
-  width: auto;
-  height: 100%;
-  max-width: 90%;
+    flex-direction: row !important;
+    justify-content: space-evenly;
+    align-items: center;
+  width: auto !important;
+  height: auto !important;
   overflow: clip;
+  align-items: end;
+  padding: 5%;
 }
 
 .u-close {
@@ -244,21 +239,18 @@ h2{
   font-size: 30px;
   color: #333;
   cursor: pointer;
-  z-index: 10000;
+  z-index: 1000;
 }
 
 .u-modal-content img {
-  width: auto;
   height: 100%;
   object-fit: contain;
-  border-radius: 8px;
 }
 
 .u-modal-description {
+  width: 100%;
   max-height: 100%;
-  width: 50%;
-  padding: 50px;
-  text-align: left;
+  padding: 2% 0 0 2%;
 }
 
 .thumbnail {
@@ -267,26 +259,38 @@ h2{
 }
 
 
-.thumbnail {
-  cursor: pointer;
-  width: 300px;
-}
-
 /* Responsive layout */
 @media (max-width: 768px) {
-  .modal-content {
-    flex-direction: column;
-    height: auto;
+
+  .u-modal {
+    padding: 5%;
   }
 
-  .modal-content img {
-    width: 100%;
-    height: auto;
+ .u-modal-content {
+  background-color: rgba(255, 255, 255, 0.667) !important;
+  display: flex;
+  position: relative;
+    display: flex;
+    flex-direction: column !important;
+    justify-content: center;
+    align-items: center;
+  padding: 5%;
+  width: auto !important;
+  height: auto !important;
   }
-  .modal-description {
-    width: 100%;
-    padding-left: 0;
-    padding-top: 20px;
+
+  .u-modal-content img {
+    width: 100% !important;
+    max-height: 100%;
+    height: auto;
+    max-height: fit-content;
+    padding: 2%;
+  }
+
+  .u-modal-description {
+    width: 100% !important;
+    max-height: 100%;
+    padding: 2%;
   }
 }
 
