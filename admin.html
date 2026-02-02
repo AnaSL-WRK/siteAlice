@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin - Alice nas Artes</title>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <link rel="stylesheet" href="src/styles/galery.css">
+  <link rel="stylesheet" href="src/styles/admin.css">
+</head>
+
+<body>
+  <div class="admin-wrap">
+    <h1>Admin</h1>
+    <p class="small">Login Google obrigatório. Depois tens a galeria com editar/apagar/reordenar.</p>
+
+    <div class="card">
+      <h2 style="font-size: 18px;">1) Login</h2>
+      <div id="gbtn"></div>
+      <div id="who" class="status"></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="secondary" id="btnSwitch" type="button">Trocar conta</button>
+        <button class="secondary" id="btnLogout" type="button">Sair</button>
+      </div>
+    </div>
+
+    <div class="card" id="adminArea" style="display:none;">
+      <h2 style="font-size: 18px;">2) Galeria (admin)</h2>
+
+      <div class="row">
+        <div>
+          <label>Ver</label>
+          <select id="viewKind">
+            <option value="pinturas">Pinturas</option>
+            <option value="mista">Técnica mista</option>
+            <option value="fotografia">Fotografia</option>
+          </select>
+        </div>
+
+        <div id="viewCategoryWrap" style="display:none;">
+          <label>Categoria (fotografia)</label>
+          <select id="viewCategory">
+            <option value="estruturas">Estruturas</option>
+            <option value="praia">Praia</option>
+            <option value="natureza">Natureza</option>
+            <option value="tema_livre">Tema Livre</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="btnSaveOrder" type="button">Guardar ordem</button>
+        <button class="secondary" id="btnReload" type="button">Recarregar</button>
+      </div>
+
+      <div id="adminStatus" class="status"></div>
+
+      <!-- Galeria admin (clone das páginas) -->
+      <div class="box" id="box-admin" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- Modal Upload -->
+  <div id="uploadModal" class="modal" style="display:none;">
+    <div class="modal-content" style="height:auto; max-width:720px;">
+      <span class="close" id="uploadClose">&times;</span>
+
+      <h3 style="margin:0 0 10px 0; color: navy;">Adicionar nova imagem</h3>
+
+      <div class="row">
+        <div>
+          <label>Tipo</label>
+          <select id="uploadKind">
+            <option value="pinturas">Pinturas</option>
+            <option value="mista">Técnica mista</option>
+            <option value="fotografia">Fotografia</option>
+          </select>
+        </div>
+        <div>
+          <label>Coluna</label>
+          <select id="uploadCol">
+            <option value="1">Coluna 1</option>
+            <option value="2">Coluna 2</option>
+            <option value="3">Coluna 3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" id="uploadCategoryRow" style="display:none;">
+        <div>
+          <label>Categoria (fotografia)</label>
+          <select id="uploadCategory">
+            <option value="estruturas">Estruturas</option>
+            <option value="praia">Praia</option>
+            <option value="natureza">Natureza</option>
+            <option value="tema_livre">Tema Livre</option>
+          </select>
+        </div>
+        <div>
+          <label>Ano</label>
+          <input id="uploadYear" type="number" />
+        </div>
+      </div>
+
+      <label>Título</label>
+      <input id="uploadTitle" />
+
+      <div id="uploadPaintFields" style="display:block;">
+        <div class="row">
+          <div>
+            <label>Técnica</label>
+            <input id="uploadTechnique" placeholder="ex: Acrílico sobre tela" />
+          </div>
+          <div>
+            <label>Dimensões</label>
+            <input id="uploadDimensions" placeholder="ex: 70 x 50 cm" />
+          </div>
+        </div>
+      </div>
+
+      <label>Imagem</label>
+      <input id="uploadFile" type="file" accept="image/*" />
+
+      <div class="row" style="margin-top:12px;">
+        <button id="btnDoUpload" type="button">Fazer upload</button>
+        <button class="secondary" id="btnCancelUpload" type="button">Cancelar</button>
+      </div>
+
+      <div id="uploadStatus" class="status"></div>
+    </div>
+  </div>
+
+  <!-- Modal Editar -->
+  <div id="editModal" class="modal" style="display:none;">
+    <div class="modal-content" style="height:auto; max-width:820px;">
+      <span class="close" id="editClose">&times;</span>
+
+      <h3 style="margin:0 0 10px 0; color: navy;">Editar</h3>
+
+      <img id="editPreview" class="preview-img" alt="" style="margin-bottom:12px;" />
+
+      <input type="hidden" id="editId" />
+      <input type="hidden" id="editKind" />
+
+      <label>Título</label>
+      <input id="editTitle" />
+
+      <div class="row">
+        <div>
+          <label>Ano</label>
+          <input id="editYear" type="number" />
+        </div>
+
+        <div id="editCategoryWrap" style="display:none;">
+          <label>Categoria (fotografia)</label>
+          <select id="editCategory">
+            <option value="estruturas">Estruturas</option>
+            <option value="praia">Praia</option>
+            <option value="natureza">Natureza</option>
+            <option value="tema_livre">Tema Livre</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="editPaintFields" style="display:block;">
+        <div class="row">
+          <div>
+            <label>Técnica</label>
+            <input id="editTechnique" />
+          </div>
+          <div>
+            <label>Dimensões</label>
+            <input id="editDimensions" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="btnSaveEdit" type="button">Guardar alterações</button>
+        <button class="danger" id="btnDeleteEdit" type="button">Apagar</button>
+      </div>
+
+      <div id="editStatus" class="status"></div>
+    </div>
+  </div>
+
+  <script type="module" src="src/admin_gallery.js"></script>
+</body>
+</html>

@@ -274,16 +274,16 @@ h2{
 
 /* Responsive layout */
 @media (max-width: 768px) {
-  .modal-content {
+  .u-modal-content {
     flex-direction: column;
     height: auto;
   }
 
-  .modal-content img {
+  .u-modal-content img {
     width: 100%;
     height: auto;
   }
-  .modal-description {
+  .u-modal-description {
     width: 100%;
     padding-left: 0;
     padding-top: 20px;
