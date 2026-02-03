@@ -18,6 +18,12 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+@router.get("/me")
+def admin_me(user: dict = Depends(require_admin)):
+    """Confirma se o token pertence a um admin autorizado."""
+    return user
+
+
 ALLOWED_MIME = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -210,7 +216,12 @@ def reorder_fotos(
         if not art_id or col not in (1, 2, 3) or not isinstance(col_order, int):
             raise HTTPException(status_code=400, detail="bad item")
 
-        a = db.query(Fotografia).filter(Fotografia.id == art_id).first()
+        try:
+            art_uuid = UUID(str(art_id))
+        except Exception:
+            continue
+
+        a = db.query(Fotografia).filter(Fotografia.id == art_uuid).first()
         if not a:
             continue
 
@@ -251,7 +262,12 @@ def reorder_pinturas(
         if type_ not in ("pinturas", "mista"):
             raise HTTPException(status_code=400, detail='type must be "pinturas" or "mista"')
 
-        a = db.query(Pintura).filter(Pintura.id == art_id).first()
+        try:
+            art_uuid = UUID(str(art_id))
+        except Exception:
+            continue
+
+        a = db.query(Pintura).filter(Pintura.id == art_uuid).first()
         if not a:
             continue
 
@@ -280,11 +296,11 @@ def update_foto(
         raise HTTPException(status_code=404, detail="Foto not found")
 
     if payload.title is not None:
-        foto.title = payload.title
+        foto.title = payload.title.strip() or None
     if payload.year is not None:
         foto.year = payload.year
     if payload.category is not None:
-        foto.category = payload.category
+        foto.category = sanitize_category(payload.category)
 
     db.commit()
     return {"ok": True}
@@ -309,15 +325,15 @@ def update_pintura(
         raise HTTPException(status_code=404, detail="Pintura not found")
 
     if payload.title is not None:
-        p.title = payload.title
+        p.title = payload.title.strip() or None
     if payload.year is not None:
         p.year = payload.year
     if payload.technique is not None:
-        p.technique = payload.technique
+        p.technique = payload.technique.strip() or None
     if payload.dimensions is not None:
-        p.dimensions = payload.dimensions
+        p.dimensions = payload.dimensions.strip() or None
     if payload.type is not None:
-        p.type = payload.type
+        p.type = (payload.type or "").strip().lower() or None
 
     db.commit()
     return {"ok": True}

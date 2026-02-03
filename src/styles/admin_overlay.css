@@ -1,0 +1,262 @@
+/*
+  Admin overlays (scoped)
+  - Only activates when <body class="admin-on">.
+  - Does NOT change public styling.
+*/
+
+/* Floating button (bottom-right) */
+.admin-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10050;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-fab:hover {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.admin-fab span {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: navy;
+}
+
+/* Top toolbar */
+body.admin-on .admin-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10040;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.86);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.admin-on {
+  /* prevents toolbar overlapping first content on pages without padding */
+  padding-top: 54px;
+}
+
+.admin-toolbar .left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-toolbar .right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-toolbar .status {
+  color: navy;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.admin-toolbar button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-toolbar button.primary {
+  background: navy;
+  color: white;
+}
+
+.admin-toolbar button.secondary {
+  background: rgba(0, 0, 0, 0.08);
+  color: navy;
+}
+
+.admin-toolbar button.danger {
+  background: rgba(185, 28, 28, 0.85);
+  color: white;
+}
+
+.admin-toolbar button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Draggable state (scoped) */
+body.admin-on .image-container {
+  cursor: grab;
+}
+
+body.admin-on .image-container.dragging {
+  opacity: 0.55;
+}
+
+/* Add tile */
+body.admin-on .add-tile {
+  border: 2px dashed rgba(0, 0, 128, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: navy;
+  font-weight: 800;
+  min-height: 120px;
+}
+
+body.admin-on .add-tile small {
+  display: block;
+  font-weight: 600;
+  opacity: 0.8;
+  margin-top: 6px;
+}
+
+/* Small edit badge on top-left */
+body.admin-on .admin-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.85);
+  color: navy;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Modal base */
+.a-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10060;
+  background: rgba(0, 0, 0, 0.72);
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.a-modal .a-content {
+  width: min(880px, 92vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+}
+
+.a-modal .a-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 28px;
+  color: #1f2937;
+  cursor: pointer;
+  user-select: none;
+}
+
+.a-modal h3 {
+  margin: 0 0 12px 0;
+  color: navy;
+}
+
+.a-modal label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  color: navy;
+  font-weight: 700;
+}
+
+.a-modal input,
+.a-modal select,
+.a-modal textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
+  background: white;
+}
+
+.a-modal .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.a-modal .actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+}
+
+.a-modal .actions button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.a-modal .actions .primary {
+  background: navy;
+  color: white;
+}
+
+.a-modal .actions .secondary {
+  background: rgba(0, 0, 0, 0.08);
+  color: navy;
+}
+
+.a-modal .actions .danger {
+  background: rgba(185, 28, 28, 0.85);
+  color: white;
+}
+
+.a-modal .status {
+  margin-top: 10px;
+  color: navy;
+  font-size: 13px;
+}
+
+.a-preview {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: white;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .a-modal .row {
+    grid-template-columns: 1fr;
+  }
+}

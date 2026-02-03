@@ -1,0 +1,213 @@
+/* ============ Base ============ */
+body {
+  background: white;
+}
+
+.admin-wrap,
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.wrap {
+  max-width: 800px; /* para edit page */
+}
+
+h1, h2, h3 {
+  color: navy;
+}
+
+label {
+  display: block;
+  color: navy;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Inputs / Controls */
+input,
+select,
+button,
+textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #cfd8dc;
+  box-sizing: border-box;
+}
+
+button {
+  background: navy;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #6b7280;
+}
+
+button.danger {
+  background: #b91c1c;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Layout helpers */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.status {
+  margin-top: 10px;
+  color: navy;
+  text-align: left;
+}
+
+.small {
+  font-size: 12px;
+  color: #374151;
+}
+
+/* Cards */
+.card {
+  border: 1px solid #dfe3e8;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  background: #fff;
+}
+
+/* ============ Admin lists (reorder) ============ */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.col {
+  border: 1px dashed #9aa4b2;
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 180px;
+  background: #fff;
+}
+
+.col h3 {
+  font-size: 16px;
+  margin: 0 0 8px 0;
+  color: navy;
+}
+
+.list {
+  min-height: 120px;
+}
+
+/* Draggable item */
+.item {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.item.dragging {
+  opacity: 0.5;
+}
+
+.item img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+/* Delete X button */
+.xbtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0,0,0,.55);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+  font-size: 18px;
+}
+
+.xbtn:hover {
+  background: rgba(185,28,28,.85);
+}
+
+/* Add new tile */
+.add-tile {
+  border: 2px dashed #9aa4b2;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: navy;
+  font-weight: 700;
+  min-height: 120px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.add-tile small {
+  display: block;
+  font-weight: 500;
+  opacity: .8;
+  margin-top: 6px;
+}
+
+/* ============ Edit page preview ============ */
+.preview-img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  display: block;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .row, .row3 {
+    grid-template-columns: 1fr;
+  }
+}
