@@ -267,9 +267,13 @@ h2{
 }
 
 .u-modal-content {
+  position: relative;       
+
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  flex-direction: row;
+  justify-content: space-evenly;
+
+  align-items: flex-end;   
 
   width: fit-content;
   height: fit-content;
@@ -277,24 +281,25 @@ h2{
   max-width: 90vw;
   max-height: 90vh;
 
-  padding: 16px;
-  border-radius: 8px;
-
-  background-color: rgba(255, 255, 255, 0.67);
-
-  overflow: auto;             /* if text is long, it scrolls inside */
+  padding: 18px 18px 14px;    /* leave room for the X */
+  background: rgba(255,255,255,.67);
+  overflow: auto;             /* if needed */
 }
 
-/* Close button */
+
+
 .u-close {
-  position: sticky;           /* stays visible if content scrolls */
-  top: 0;
-  margin-left: auto;
+  position: absolute;
+  top: 8px;
+  right: 12px;
 
   font-size: 30px;
-  cursor: pointer;
   line-height: 1;
+  cursor: pointer;
+
+  z-index: 10;
 }
+
 
 .u-modal-content img {
   display: block;
@@ -328,18 +333,20 @@ h2{
 
   .u-modal-content {
     flex-direction: column;
+    align-items: center;   /* in column layout, flex-end usually looks weird */
     max-width: 92vw;
     max-height: 92vh;
   }
 
-  .u-modal-content img {
-    max-width: 92vw;
-    max-height: 60vh;
-  }
 
   .u-modal-description {
     max-width: 92vw;
     min-width: 0;
+  }
+
+  .u-close {
+    top: 8px;
+    right: 10px;
   }
 }
 
