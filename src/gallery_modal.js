@@ -15,39 +15,50 @@ function linesToOverlayHtml(lines) {
     .join('<br>');
 }
 
+function buildOverlayText(item, overlayMode) {
+  if (!overlayMode || overlayMode === 'none') return '';
+
+  if (overlayMode === 'foto') {
+    // fotografia: só título
+    return item.title ? String(item.title) : '';
+  }
+
+  if (overlayMode === 'mista') {
+    // técnica mista: título, ano, dimensões
+    const lines = [];
+    if (item.title) lines.push(item.title);
+    if (item.year) lines.push(item.year);
+    if (item.dimensions) lines.push(item.dimensions);
+    return linesToOverlayHtml(lines);
+  }
+
+  // pintura: título, ano, técnica, dimensões
+  const lines = [];
+  if (item.title) lines.push(item.title);
+  if (item.year) lines.push(item.year);
+  if (item.technique) lines.push(item.technique);
+  if (item.dimensions) lines.push(item.dimensions);
+  return linesToOverlayHtml(lines);
+}
+
 function createImageNode(item, overlayMode) {
   const container = document.createElement('div');
   container.className = 'image-container';
   container.dataset.id = item.id;
 
   const img = document.createElement('img');
-  img.src = resolveUrl(item.url); 
+  img.src = resolveUrl(item.url);
   img.alt = item.title || '';
   container.appendChild(img);
 
-  if (overlayMode && overlayMode !== 'none') {
+  const overlayHtml = buildOverlayText(item, overlayMode);
+  if (overlayHtml) {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
 
     const p = document.createElement('p');
-
-    if (overlayMode === 'foto') {
-      p.textContent = item.title || '';
-    } else if (overlayMode === 'mista') {
-      const lines = [];
-      if (item.title) lines.push(item.title);
-      if (item.year) lines.push(item.year);
-      if (item.dimensions) lines.push(item.dimensions);
-      p.innerHTML = linesToOverlayHtml(lines);
-    } else {
-      // pintura
-      const lines = [];
-      if (item.title) lines.push(item.title);
-      if (item.year) lines.push(item.year);
-      if (item.technique) lines.push(item.technique);
-      if (item.dimensions) lines.push(item.dimensions);
-      p.innerHTML = linesToOverlayHtml(lines);
-    }
+    // overlay permite <br>
+    p.innerHTML = overlayHtml;
 
     overlay.appendChild(p);
     container.appendChild(overlay);
@@ -56,9 +67,9 @@ function createImageNode(item, overlayMode) {
   return container;
 }
 
-// ---------------------------
-// Universal Modal (instala 1x)
-// ---------------------------
+/* ---------------------------
+   Universal Modal (instala 1x)
+---------------------------- */
 let __universalModalInstalled = false;
 
 function ensureUniversalModalDom() {
@@ -69,8 +80,8 @@ function ensureUniversalModalDom() {
   modal.id = 'universalModal';
   modal.className = 'u-modal';
   modal.innerHTML = `
-    <div class="u-modal-content">
-      <span class="u-close">&times;</span>
+    <div class="u-modal-content" role="dialog" aria-modal="true">
+      <span class="u-close" aria-label="Fechar">&times;</span>
       <img id="modalImage" src="" alt="">
       <div class="u-modal-description" id="modalDesc"></div>
     </div>
@@ -79,62 +90,78 @@ function ensureUniversalModalDom() {
   return modal;
 }
 
+function openModal({ src, descHtml }) {
+  const modal = ensureUniversalModalDom();
+  const modalImg = modal.querySelector('#modalImage');
+  const modalDesc = modal.querySelector('#modalDesc');
+  const modalContent = modal.querySelector('.u-modal-content');
+
+  // reset (evita "restos" do item anterior)
+  modalDesc.innerHTML = descHtml || '';
+  modalImg.onload = null;
+  modalImg.onerror = null;
+
+  // opcional: remove estilos inline caso existam de versões antigas
+  modalContent.removeAttribute('style');
+  modalImg.removeAttribute('style');
+
+  // abre já
+  modal.style.display = 'flex';
+
+  // força refresh mesmo que seja o mesmo src
+  modalImg.src = '';
+  modalImg.src = src;
+
+  // se falhar
+  modalImg.onerror = () => {
+    // mantém modal aberto mas informa
+    modalDesc.innerHTML = (modalDesc.innerHTML || '') + '<br><small>Erro a carregar imagem.</small>';
+  };
+}
+
+function closeModal() {
+  const modal = document.getElementById('universalModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+}
+
 function installUniversalModal() {
   if (__universalModalInstalled) return;
   __universalModalInstalled = true;
 
   const modal = ensureUniversalModalDom();
-  const modalImg = modal.querySelector('#modalImage');
-  const modalDesc = modal.querySelector('#modalDesc');
   const closeBtn = modal.querySelector('.u-close');
-  const modalContent = modal.querySelector('.u-modal-content');
 
-  const close = () => { modal.style.display = 'none'; };
+  // fechar por X
+  closeBtn.addEventListener('click', closeModal);
 
-  // fechar
-  closeBtn.addEventListener('click', close);
-
-  window.addEventListener('click', (e) => {
-    if (e.target === modal) close();
+  // fechar por click no backdrop
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
   });
 
+  // fechar por ESC
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') closeModal();
   });
 
-  // Event delegation: funciona para elementos criados dinamicamente
+  // Event delegation: abre modal ao clicar numa .image-container
   document.addEventListener('click', (e) => {
     const container = e.target.closest('.image-container');
     if (!container) return;
 
+    // se for tile do admin, não abre modal público
+    if (container.classList.contains('add-tile')) return;
+
     const img = container.querySelector('img');
     if (!img) return;
 
-    const overlay = container.querySelector('.overlay');
-    const overlayP = overlay?.querySelector('p');
+    const overlayP = container.querySelector('.overlay p');
 
-    // descrição (HTML do overlay)
-    modalDesc.innerHTML = overlayP?.innerHTML ?? '';
-
-    // ✅ abre já (não depende do onload)
-    modalContent.style.height = '100%';
-    modal.style.display = 'flex';
-
-    // ajusta depois quando carregar (se carregar)
-    modalImg.onload = () => {
-      const imgWidth = modalImg.naturalWidth || 0;
-      modalContent.style.height = (imgWidth > 500) ? '80%' : '100%';
-    };
-
-    modalImg.onerror = () => {
-      // mantém aberto mesmo se falhar
-      modalContent.style.height = '100%';
-    };
-
-    // ✅ força refresh mesmo que seja o mesmo src
-    const nextSrc = img.src;
-    modalImg.src = '';
-    modalImg.src = nextSrc;
+    openModal({
+      src: img.src,
+      descHtml: overlayP ? overlayP.innerHTML : '',
+    });
   });
 }
 
@@ -150,7 +177,7 @@ export async function renderBox({
   timeoutMs = 2000,
   keepStaticOnFail = true,
 }) {
-  // ✅ garante modal pronto (uma vez) antes de renderizar
+  // garante modal pronto (1x) antes de renderizar
   installUniversalModal();
 
   const box = document.getElementById(boxId);
@@ -159,8 +186,9 @@ export async function renderBox({
   const hadStatic = box.children.length > 0;
   const staticHTML = hadStatic ? box.innerHTML : '';
 
-  // Mostra hint só se não houver estático
   let loading = null;
+
+  // se não havia estático: cria estrutura e loading
   if (!hadStatic) {
     box.innerHTML = '';
     const col1 = createDreamColumn();
