@@ -271,8 +271,8 @@ h2{
     flex-direction: row !important;
     justify-content: space-evenly;
     align-items: center;
-  width: auto !important;
-  height: auto !important;
+  width: 100% !important;
+  height: 100% !important;
   overflow: clip;
   align-items: end;
   padding: 2%;
@@ -326,14 +326,14 @@ h2{
     justify-content: center;
     align-items: center;
   padding: 5%;
-  width: auto !important;
-  height: auto !important;
+  width: 100% !important;
+  height: 100% !important;
   }
 
   .u-modal-content img {
     width: 100% !important;
     max-height: 100%;
-    height: auto;
+    height: 100%;
     max-height: fit-content;
     padding: 2%;
   }
