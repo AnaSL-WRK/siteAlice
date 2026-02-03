@@ -1,14 +1,9 @@
-
-
-
-
 * {
     margin: 0;
     padding: 0;
-  
-    
-
+    box-sizing: border-box;
 }
+
 
 body {
     background-color: white !important;
@@ -25,6 +20,7 @@ a{
   color: inherit !important; /* Inherit the text color from the parent element */
   /* Add any other desired styles here */
 }
+
 .submenu {
   position: absolute;
   background-color: #f9f9f9;
@@ -54,10 +50,6 @@ ul li:hover .submenu li a {
   text-align: center; 
   padding-left: 0 !important;
   text-decoration: none; 
-}
-
-ul li:hover .submenu li a:hover {
-  background-color: #f0f0f0; 
 }
 
 
@@ -112,11 +104,21 @@ ul li:hover .submenu li a:hover {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    text-align: center;
+    
 }
 
 .container .logo {
-    margin: 20px 10px 1px 10px; /* Optional: Add margin to the logo for spacing */
+    margin: 20px 10px 1px 10px; 
 }
+
+.container .heading h1{
+  font-size: 40px; 
+  border-bottom: 3px solid navy ;
+  padding: 10px 50px; 
+  margin: 30px;
+}
+
 
 .line {
     height: 1px;
