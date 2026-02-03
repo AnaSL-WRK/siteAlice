@@ -20,6 +20,13 @@ let dirty = false;
 let dragEl = null;
 let dragOriginBoxId = null;
 
+const isAdminUrl = new URL(window.location.href).searchParams.get('admin') === '1';
+if (!isAdminUrl) {
+  adminOn = false;
+  sessionStorage.removeItem(SS_ON_KEY);
+}
+
+
 // Cache items per box (boxId -> Map<id,item>)
 const boxCache = new Map();
 
@@ -59,23 +66,6 @@ function setDirty(on) {
 }
 
 /* ----------------- UI: toolbar + FAB + modals ----------------- */
-function ensureFab() {
-  if (q('#adminFab')) return;
-
-  const fab = document.createElement('div');
-  fab.id = 'adminFab';
-  fab.className = 'admin-fab';
-  fab.innerHTML = '<span>Admin</span>';
-  fab.addEventListener('click', async () => {
-    if (adminOn) {
-      // quick toggle off
-      await turnOffAdmin();
-    } else {
-      await openLogin();
-    }
-  });
-  document.body.appendChild(fab);
-}
 
 function ensureToolbar() {
   if (q('#adminToolbar')) return;
@@ -364,13 +354,14 @@ function switchAccount() {
   }
 }
 
-function logout() {
+async function logout() {
   idToken = null;
   sessionStorage.removeItem(SS_TOKEN_KEY);
   sessionStorage.removeItem(SS_ON_KEY);
-  turnOffAdmin();
+  await turnOffAdmin();
   try { window.google.accounts.id.disableAutoSelect(); } catch {}
 }
+
 
 /* ----------------- Admin mode: cache + enhance ----------------- */
 async function refreshCacheAll() {
@@ -493,6 +484,7 @@ function enhanceAllBoxes() {
 
 async function turnOnAdmin() {
   adminOn = true;
+  installAdminCapture();
   document.body.classList.add('admin-on');
   show(q('#adminToolbar'), true);
   setDirty(false);
@@ -508,6 +500,7 @@ async function turnOnAdmin() {
 
 async function turnOffAdmin() {
   adminOn = false;
+  uninstallAdminCapture();
   setDirty(false);
   document.body.classList.remove('admin-on');
   show(q('#adminToolbar'), false);
@@ -523,21 +516,36 @@ async function turnOffAdmin() {
   }
 }
 
-/* ----------------- Click interception: open edit instead of view modal ----------------- */
-document.addEventListener('click', (e) => {
-  if (!adminOn) return;
+/* ----------------- Click interception (installed only in admin mode) ----------------- */
+let __adminCaptureInstalled = false;
+
+const adminCaptureClickHandler = (e) => {
+  if (!isAdminUrl || !adminOn) return;
+
   const container = e.target.closest('.image-container');
   if (!container) return;
   if (container.classList.contains('add-tile')) return;
 
-  // In admin mode, click = edit (stop universal modal)
+  // Em admin mode, click = editar (impede modal público)
   e.preventDefault();
   e.stopPropagation();
 
   const box = container.closest('.box');
   const id = container.dataset.id;
   if (box && id) openEditModal(box.id, id);
-}, true); // capture
+};
+
+function installAdminCapture() {
+  if (__adminCaptureInstalled) return;
+  document.addEventListener('click', adminCaptureClickHandler, true); // capture
+  __adminCaptureInstalled = true;
+}
+
+function uninstallAdminCapture() {
+  if (!__adminCaptureInstalled) return;
+  document.removeEventListener('click', adminCaptureClickHandler, true); // capture
+  __adminCaptureInstalled = false;
+}
 
 /* ----------------- Save / Cancel order ----------------- */
 function getOrderStateForBox(box) {
