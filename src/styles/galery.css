@@ -253,7 +253,7 @@ h2{
   background-color: rgba(0, 0, 0,0);  
 }
 
-.modal {
+.u-modal {
   display: none;
   position: fixed;
   z-index: 999;
@@ -264,7 +264,7 @@ h2{
   padding: 5%;
 }
 
-.modal-content {
+.u-modal-content {
   background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
   position: relative;
@@ -278,7 +278,7 @@ h2{
   padding: 2%;
 }
 
-.close {
+.u-close {
   position: absolute;
   top: 0px;
   right: 15px;
@@ -288,12 +288,12 @@ h2{
   z-index: 1000;
 }
 
-.modal-content img {
+.u-modal-content img {
   height: 100%;
   object-fit: contain;
 }
 
-.modal-description {
+.u-modal-description {
   width: 100%;
   max-height: 100%;
   padding: 2% 0 0 2%;
