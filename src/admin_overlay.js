@@ -59,23 +59,6 @@ function setDirty(on) {
 }
 
 /* ----------------- UI: toolbar + FAB + modals ----------------- */
-function ensureFab() {
-  if (q('#adminFab')) return;
-
-  const fab = document.createElement('div');
-  fab.id = 'adminFab';
-  fab.className = 'admin-fab';
-  fab.innerHTML = '<span>Admin</span>';
-  fab.addEventListener('click', async () => {
-    if (adminOn) {
-      // quick toggle off
-      await turnOffAdmin();
-    } else {
-      await openLogin();
-    }
-  });
-  document.body.appendChild(fab);
-}
 
 function ensureToolbar() {
   if (q('#adminToolbar')) return;
@@ -866,7 +849,6 @@ async function init() {
   // only on pages with galleries
   if (!getBoxes().length) return;
 
-  ensureFab();
   ensureToolbar();
   ensureModals();
 
