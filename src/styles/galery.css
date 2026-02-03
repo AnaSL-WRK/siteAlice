@@ -254,42 +254,57 @@ h2{
 }
 
 .u-modal {
-  display: none;
+  display: none;              /* JS toggles to flex */
   position: fixed;
-  z-index: 999;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  background: rgba(0,0,0,.9);
+
   justify-content: center;
   align-items: center;
-  padding: 5%;
+
+  padding: 5vh 5vw;           /* breathing room so it never touches edges */
 }
 
 .u-modal-content {
-  background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
-  position: relative;
-    flex-direction: row !important;
-    justify-content: space-evenly;
-    align-items: center;
-  width: fit-content !important;
-  height: fit-content !important;
-  overflow: clip;
-  align-items: end;
-  padding: 2%;
+  gap: 16px;
+  align-items: flex-start;
+
+  width: fit-content;
+  height: fit-content;
+
+  max-width: 90vw;
+  max-height: 90vh;
+
+  padding: 16px;
+  border-radius: 8px;
+
+  background-color: rgba(255, 255, 255, 0.67);
+
+  overflow: auto;             /* if text is long, it scrolls inside */
 }
 
+/* Close button */
 .u-close {
-  position: absolute;
-  top: 0px;
-  right: 15px;
+  position: sticky;           /* stays visible if content scrolls */
+  top: 0;
+  margin-left: auto;
+
   font-size: 30px;
-  color: #333;
   cursor: pointer;
-  z-index: 1000;
+  line-height: 1;
 }
 
 .u-modal-content img {
-  height: 100%;
+  display: block;
+
+  width: auto;
+  height: auto;
+
+  max-width: 65vw;
+  max-height: 85vh;
+
   object-fit: contain;
 }
 
@@ -305,43 +320,26 @@ h2{
   width: 200px;
 }
 
-/* Responsive layout */
+/* Mobile */
 @media (max-width: 768px) {
-
-  .image-container:hover .overlay {
-  opacity: 0;
-}
-
-
   .u-modal {
-    padding: 5%;
+    padding: 4vh 4vw;
   }
 
- .u-modal-content {
-  background-color: rgba(255, 255, 255, 0.667) !important;
-  display: flex;
-  position: relative;
-    display: flex;
-    flex-direction: column !important;
-    justify-content: center;
-    align-items: center;
-  padding: 5%;
-  width: fit-content !important;
-  height: fit-content !important;
+  .u-modal-content {
+    flex-direction: column;
+    max-width: 92vw;
+    max-height: 92vh;
   }
 
   .u-modal-content img {
-    width: fit-content !important;
-    max-height: fit-content;
-    height: fit-content;
-    max-height: fit-content;
-    padding: 2%;
+    max-width: 92vw;
+    max-height: 60vh;
   }
 
   .u-modal-description {
-    width: 100% !important;
-    max-height: 100%;
-    padding: 2%;
+    max-width: 92vw;
+    min-width: 0;
   }
 }
 
