@@ -192,7 +192,7 @@ ul li:hover .submenu li a {
 
 .painting-container {
   display: flex;
-  align-items: flex-start;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   max-width: 70%;
@@ -201,7 +201,7 @@ ul li:hover .submenu li a {
 @media (max-width: 768px) {
   .painting-container {
     display: flex;
-    align-items: column;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
