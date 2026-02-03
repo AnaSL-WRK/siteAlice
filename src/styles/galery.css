@@ -305,9 +305,13 @@ h2{
   width: 200px;
 }
 
-
 /* Responsive layout */
 @media (max-width: 768px) {
+
+  .image-container:hover .overlay {
+  opacity: 0;
+}
+
 
   .u-modal {
     padding: 5%;
@@ -317,6 +321,7 @@ h2{
   background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
   position: relative;
+    display: flex;
     flex-direction: column !important;
     justify-content: center;
     align-items: center;
@@ -339,6 +344,8 @@ h2{
     padding: 2%;
   }
 }
+
+
 
 
 
