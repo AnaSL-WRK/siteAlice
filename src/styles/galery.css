@@ -211,6 +211,7 @@ h2{
 .u-modal {
   display: none;
   position: fixed;
+  inset: 0;
   z-index: 999;
   background-color: rgba(0, 0, 0, 0.9);
   justify-content: center;
@@ -243,7 +244,7 @@ h2{
 }
 
 .u-modal-content img {
-  height: 100%;
+  height: auto;
   object-fit: contain;
 }
 
