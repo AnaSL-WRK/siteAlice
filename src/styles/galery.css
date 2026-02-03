@@ -257,9 +257,7 @@ h2{
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 9999;
-  left: 0;
-  top: 0;
+  z-index: 999;
   background-color: rgba(0, 0, 0, 0.9);
   justify-content: center;
   align-items: center;
@@ -290,9 +288,13 @@ h2{
   z-index: 1000;
 }
 
+
 .u-modal-content img {
+  width: 100% !important;
+  max-height: 100%;
   height: auto;
-  object-fit: contain;
+  max-height: fit-content;
+  padding: 2%;
 }
 
 .u-modal-description {
@@ -318,7 +320,6 @@ h2{
   background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
   position: relative;
-    display: flex;
     flex-direction: column !important;
     justify-content: center;
     align-items: center;
@@ -403,11 +404,4 @@ h2{
     margin-bottom:0;
   }
 
-#universalModal.u-modal {
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  inset: 0 !important;
-  z-index: 99999 !important;
-}
+
