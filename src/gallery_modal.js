@@ -113,23 +113,28 @@ function installUniversalModal() {
     const overlay = container.querySelector('.overlay');
     const overlayP = overlay?.querySelector('p');
 
-    // define onload ANTES de trocar src
-    modal.style.display = 'none';
-
-    modalImg.onload = () => {
-      const imgWidth = modalImg.naturalWidth || 0;
-      modalContent.style.height = (imgWidth > 500) ? '80%' : '100%';
-      modal.style.display = 'flex';
-    };
-
-    modalImg.src = img.src;
-
     // descrição (HTML do overlay)
     modalDesc.innerHTML = overlayP?.innerHTML ?? '';
 
-    // garantir que aparece
-    const p = modalDesc.querySelector('p');
-    if (p) p.style.display = 'block';
+    // ✅ abre já (não depende do onload)
+    modalContent.style.height = '100%';
+    modal.style.display = 'flex';
+
+    // ajusta depois quando carregar (se carregar)
+    modalImg.onload = () => {
+      const imgWidth = modalImg.naturalWidth || 0;
+      modalContent.style.height = (imgWidth > 500) ? '80%' : '100%';
+    };
+
+    modalImg.onerror = () => {
+      // mantém aberto mesmo se falhar
+      modalContent.style.height = '100%';
+    };
+
+    // ✅ força refresh mesmo que seja o mesmo src
+    const nextSrc = img.src;
+    modalImg.src = '';
+    modalImg.src = nextSrc;
   });
 }
 
