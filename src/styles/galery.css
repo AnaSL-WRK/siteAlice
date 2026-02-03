@@ -253,18 +253,18 @@ h2{
   background-color: rgba(0, 0, 0,0);  
 }
 
-.u-modal {
+.modal {
   display: none;
   position: fixed;
-  inset: 0;
   z-index: 999;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.9);
   justify-content: center;
   align-items: center;
   padding: 5%;
 }
 
-.u-modal-content {
+.modal-content {
   background-color: rgba(255, 255, 255, 0.667) !important;
   display: flex;
   position: relative;
@@ -278,7 +278,7 @@ h2{
   padding: 5%;
 }
 
-.u-close {
+.close {
   position: absolute;
   top: 0px;
   right: 15px;
@@ -288,20 +288,17 @@ h2{
   z-index: 1000;
 }
 
-
-.u-modal-content img {
-  width: 100% !important;
-  max-height: 100%;
-  height: auto;
-  max-height: fit-content;
-  padding: 2%;
+.modal-content img {
+  height: 100%;
+  object-fit: contain;
 }
 
-.u-modal-description {
+.modal-description {
   width: 100%;
   max-height: 100%;
   padding: 2% 0 0 2%;
 }
+
 
 .thumbnail {
   cursor: pointer;
