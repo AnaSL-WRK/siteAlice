@@ -59,6 +59,23 @@ function setDirty(on) {
 }
 
 /* ----------------- UI: toolbar + FAB + modals ----------------- */
+function ensureFab() {
+  if (q('#adminFab')) return;
+
+  const fab = document.createElement('div');
+  fab.id = 'adminFab';
+  fab.className = 'admin-fab';
+  fab.innerHTML = '<span>Admin</span>';
+  fab.addEventListener('click', async () => {
+    if (adminOn) {
+      // quick toggle off
+      await turnOffAdmin();
+    } else {
+      await openLogin();
+    }
+  });
+  document.body.appendChild(fab);
+}
 
 function ensureToolbar() {
   if (q('#adminToolbar')) return;
@@ -804,8 +821,8 @@ async function doUpload() {
 
   const fd = new FormData();
   fd.append('col', col);
-  if (title && String(title).trim()) fd.append('title', String(title).trim());
-  if (year && String(year).trim()) fd.append('year', String(year).trim());
+  if (title && title.trim()) fd.append('title', title.trim());
+  if (year) fd.append('year', year);
   fd.append('file', file);
 
   let endpoint;
@@ -849,22 +866,26 @@ async function init() {
   // only on pages with galleries
   if (!getBoxes().length) return;
 
-  ensureToolbar();
-  ensureModals();
-
-  // auto-open login if ?admin=1
+  // Admin mode is ONLY accessible by URL (?admin=1)
   const url = new URL(window.location.href);
-  if (!adminOn && url.searchParams.get('admin') === '1') {
-    await openLogin();
+  const wantAdmin = url.searchParams.get('admin') === '1';
+
+  if (!wantAdmin) {
+    // Never show admin UI on normal URLs
+    adminOn = false;
+    sessionStorage.removeItem(SS_ON_KEY);
     return;
   }
 
-  // if session says admin on, activate overlays
+  ensureToolbar();
+  ensureModals();
+
   if (adminOn && idToken) {
     await turnOnAdmin();
   } else {
     adminOn = false;
     sessionStorage.removeItem(SS_ON_KEY);
+    await openLogin();
   }
 }
 
