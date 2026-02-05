@@ -20,7 +20,6 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 @router.get("/me")
 def admin_me(user: dict = Depends(require_admin)):
-    """Confirma se o token pertence a um admin autorizado."""
     return user
 
 
