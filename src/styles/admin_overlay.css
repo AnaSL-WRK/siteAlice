@@ -260,3 +260,6 @@ body.admin-on .admin-badge {
     grid-template-columns: 1fr;
   }
 }
+
+body.admin-on .image-container { cursor: grab; }
+body.admin-on .image-container.dragging { cursor: grabbing; }

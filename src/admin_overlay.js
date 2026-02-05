@@ -379,11 +379,14 @@ function makeDraggable(el) {
   el.draggable = true;
 
   el.addEventListener('dragstart', (e) => {
-    dragEl = el;
-    dragOriginBoxId = el.closest('.box')?.id || null;
-    el.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
+  dragEl = el;
+  dragOriginBoxId = el.closest('.box')?.id || null;
+  el.classList.add('dragging');
+
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', el.dataset.id || '');
+});
+
 
   el.addEventListener('dragend', () => {
     el.classList.remove('dragging');
@@ -466,6 +469,14 @@ function enhanceBox(box) {
     if (el.dataset.adminDraggable === '1') continue;
     el.dataset.adminDraggable = '1';
     makeDraggable(el);
+
+  //impede o drag nativo da imagem (que dá o cursor proibido)
+  const img = el.querySelector('img');
+  if (img) {
+    img.draggable = false;
+    img.addEventListener('dragstart', (ev) => ev.preventDefault());
+  }
+
   }
 }
 
