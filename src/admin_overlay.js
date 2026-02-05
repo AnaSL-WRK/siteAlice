@@ -8,7 +8,7 @@
 import { fetchJson, apiBase, resolveUrl } from './api_client.js';
 import { renderBox } from './gallery_modal.js';
 
-const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__ || '592470068306-l60g26dm0ria5k2hdeitsn2dk83f6kdr.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__ || '1027193457255-477dt7inv5hk6i8gel876sicnmp3v6et.apps.googleusercontent.com';
 
 const SS_TOKEN_KEY = 'alicenasartes_admin_id_token';
 const SS_ON_KEY = 'alicenasartes_admin_on';
