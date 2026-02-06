@@ -20,6 +20,45 @@ let dirty = false;
 let dragEl = null;
 let dragOriginBoxId = null;
 
+// ---- auto-scroll while dragging ----
+let __dragScrollRAF = null;
+let __dragScrollY = 0;
+
+function startDragAutoScroll() {
+  if (__dragScrollRAF) return; // já está a correr
+  const step = () => {
+    if (!dragEl) { stopDragAutoScroll(); return; }
+    if (__dragScrollY !== 0) {
+      window.scrollBy({ top: __dragScrollY, left: 0, behavior: 'auto' });
+    }
+    __dragScrollRAF = requestAnimationFrame(step);
+  };
+  __dragScrollRAF = requestAnimationFrame(step);
+}
+
+function stopDragAutoScroll() {
+  if (__dragScrollRAF) cancelAnimationFrame(__dragScrollRAF);
+  __dragScrollRAF = null;
+  __dragScrollY = 0;
+}
+
+function updateDragAutoScroll(clientY) {
+  const margin = 90;    // zona sensível ao topo/baixo
+  const maxSpeed = 24;  // velocidade máxima
+
+  const vh = window.innerHeight;
+  if (clientY < margin) {
+    const t = (margin - clientY) / margin; // 0..1
+    __dragScrollY = -Math.ceil(maxSpeed * t);
+  } else if (clientY > vh - margin) {
+    const t = (clientY - (vh - margin)) / margin; // 0..1
+    __dragScrollY = Math.ceil(maxSpeed * t);
+  } else {
+    __dragScrollY = 0;
+  }
+}
+
+
 const isAdminUrl = new URL(window.location.href).searchParams.get('admin') === '1';
 if (!isAdminUrl) {
   adminOn = false;
@@ -382,16 +421,33 @@ function makeDraggable(el) {
     dragEl = el;
     dragOriginBoxId = el.closest('.box')?.id || null;
     el.classList.add('dragging');
+
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.id || '');
+
+    //começa o auto-scroll
+    startDragAutoScroll();
+  });
+
+  // Durante o drag, atualiza direção/velocidade do scroll (quando houver clientY útil)
+  el.addEventListener('drag', (e) => {
+    if (typeof e.clientY === 'number' && e.clientY > 0) {
+      updateDragAutoScroll(e.clientY);
+    }
   });
 
   el.addEventListener('dragend', () => {
     el.classList.remove('dragging');
     dragEl = null;
     dragOriginBoxId = null;
+
+    //pára o auto-scroll
+    stopDragAutoScroll();
+
     setDirty(true);
   });
 }
+
 
 function getDragAfterElement(container, y) {
   const els = [...container.querySelectorAll('.image-container:not(.dragging):not(.add-tile)')];
@@ -446,6 +502,8 @@ function setupDropZones(box) {
       if ((colEl.closest('.box')?.id || null) !== dragOriginBoxId) return; // prevent cross-box moves
 
       e.preventDefault();
+      updateDragAutoScroll(e.clientY);
+
       const after = getDragAfterElement(colEl, e.clientY);
       const addTile = colEl.querySelector('.add-tile');
       if (addTile && dragEl === addTile) return;
@@ -466,6 +524,14 @@ function enhanceBox(box) {
     if (el.dataset.adminDraggable === '1') continue;
     el.dataset.adminDraggable = '1';
     makeDraggable(el);
+
+  //impede o drag nativo da imagem (que dá o cursor proibido)
+  const img = el.querySelector('img');
+  if (img) {
+    img.draggable = false;
+    img.addEventListener('dragstart', (ev) => ev.preventDefault());
+  }
+
   }
 }
 
