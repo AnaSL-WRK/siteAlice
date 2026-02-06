@@ -5,26 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Alice nas Artes — Admin</title>
 
-
   <link rel="stylesheet" href="/src/styles/galery.css">
   <link rel="stylesheet" href="/src/styles/admin_overlay.css">
 
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <!-- IMPORTANTE: mete aqui o mesmo client_id que o backend valida -->
   <script>
-    // Se já usas isto noutras páginas, mantém igual
     window.__GOOGLE_CLIENT_ID__ = "1027193457255-477dt7inv5hk6i8gel876sicnmp3v6et.apps.googleusercontent.com";
-
     window.__API_BASE__ = "https://live.alicenasartes.net";
   </script>
 
   <style>
-    /* login page simples */
+    body { background: #f7f7f7; }
     .admin-login-wrap {
       max-width: 520px;
       margin: 80px auto;
-      background: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.92);
       padding: 28px;
       border-radius: 18px;
       box-shadow: 0 10px 30px rgba(0,0,0,.12);
@@ -45,7 +41,7 @@
     <div id="status" class="status"></div>
 
     <div class="small">
-      Se entrares sem <code>next</code>, vais para o <code>index.html?admin=1</code>.
+      Dica: podes chamar <code>/admin/?next=/fotografia.html#praia</code>.
     </div>
   </div>
 
@@ -61,7 +57,7 @@
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
 
-    function waitForGsi(timeoutMs = 8000) {
+    function waitForGsi(timeoutMs = 10000) {
       return new Promise((resolve, reject) => {
         const t0 = Date.now();
         const tick = () => {
@@ -102,13 +98,11 @@
           setStatus("A validar permissões...");
 
           try {
-            // valida no backend (allowlist)
             await fetchJson("/api/admin/me", {
               method: "GET",
               headers: { Authorization: `Bearer ${token}` },
             });
 
-            // guarda e ativa
             STORE.setItem(SS_TOKEN_KEY, token);
             STORE.setItem(SS_ON_KEY, "1");
 

@@ -5,18 +5,14 @@
 // - Drag to reorder, Save/Cancel toolbar
 // - Click image to edit metadata
 // - "Add new" tile opens upload modal
+// - Keep admin=1 across navbar links
+// - Auto-scroll while dragging
 
 import { fetchJson, apiBase, resolveUrl } from "./api_client.js";
 import { renderBox } from "./gallery_modal.js";
 
-const GOOGLE_CLIENT_ID =
-  window.__GOOGLE_CLIENT_ID__ ||
-  "1027193457255-477dt7inv5hk6i8gel876sicnmp3v6et.apps.googleusercontent.com";
-
 const SS_TOKEN_KEY = "alicenasartes_admin_id_token";
 const SS_ON_KEY = "alicenasartes_admin_on";
-
-// ✅ persistente entre páginas/reloads
 const STORE = localStorage;
 
 let idToken = STORE.getItem(SS_TOKEN_KEY) || null;
@@ -26,89 +22,36 @@ let dirty = false;
 let dragEl = null;
 let dragOriginBoxId = null;
 
-// Admin mode só com ?admin=1
-const isAdminUrl = new URL(window.location.href).searchParams.get("admin") === "1";
+const urlNow = new URL(window.location.href);
+const isAdminUrl = urlNow.searchParams.get("admin") === "1";
+
+// Se não está em admin URL, nunca liga overlays
 if (!isAdminUrl) {
   adminOn = false;
   STORE.removeItem(SS_ON_KEY);
 }
 
-// ---- auto-scroll while dragging ----
-let __dragScrollRAF = null;
-let __dragScrollY = 0;
-
-function startDragAutoScroll() {
-  if (__dragScrollRAF) return;
-  const step = () => {
-    if (!dragEl) {
-      stopDragAutoScroll();
-      return;
-    }
-    if (__dragScrollY !== 0) {
-      window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
-    }
-    __dragScrollRAF = requestAnimationFrame(step);
-  };
-  __dragScrollRAF = requestAnimationFrame(step);
-}
-
-function stopDragAutoScroll() {
-  if (__dragScrollRAF) cancelAnimationFrame(__dragScrollRAF);
-  __dragScrollRAF = null;
-  __dragScrollY = 0;
-}
-
-function updateDragAutoScroll(clientY) {
-  const margin = 90;
-  const maxSpeed = 24;
-  const vh = window.innerHeight;
-
-  if (clientY < margin) {
-    const t = (margin - clientY) / margin;
-    __dragScrollY = -Math.ceil(maxSpeed * t);
-  } else if (clientY > vh - margin) {
-    const t = (clientY - (vh - margin)) / margin;
-    __dragScrollY = Math.ceil(maxSpeed * t);
-  } else {
-    __dragScrollY = 0;
-  }
-}
-
-// Cache items per box (boxId -> Map<id,item>)
-const boxCache = new Map();
-
 /* ----------------- DOM helpers ----------------- */
-function q(sel, root = document) {
-  return root.querySelector(sel);
-}
-function qa(sel, root = document) {
-  return [...root.querySelectorAll(sel)];
-}
-
-function getBoxes() {
-  return qa(".box[data-endpoint][data-kind]");
-}
+function q(sel, root = document) { return root.querySelector(sel); }
+function qa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+function getBoxes() { return qa(".box[data-endpoint][data-kind]"); }
 
 function show(el, on) {
   if (!el) return;
   el.style.display = on ? "flex" : "none";
 }
-
 function setText(id, txt) {
   const el = document.getElementById(id);
   if (el) el.textContent = txt || "";
 }
-
 function authHeaders(json = true) {
   const h = { Authorization: `Bearer ${idToken}` };
   if (json) h["Content-Type"] = "application/json";
   return h;
 }
-
 function ensureLoggedIn() {
   if (!idToken) throw new Error("Sessão expirada. Faz login novamente.");
 }
-
 function setDirty(on) {
   dirty = !!on;
   const saveBtn = q("#adminBtnSave");
@@ -116,31 +59,50 @@ function setDirty(on) {
   setText("adminToolbarStatus", dirty ? "Alterações por guardar" : "");
 }
 
-/* ----------------- Navbar admin=1 ----------------- */
+/* ----------------- Navbar keep ?admin=1 ----------------- */
 function rewriteLinksForAdmin() {
-  // Só reescreve links quando realmente estás em modo admin
   if (!isAdminUrl || !adminOn || !idToken) return;
 
-  for (const a of qa('a[href]')) {
+  for (const a of qa("a[href]")) {
     const href = a.getAttribute("href");
     if (!href) continue;
 
-    // não mexer em anchors puros ou externos
     if (href.startsWith("#")) continue;
     if (href.startsWith("mailto:")) continue;
     if (href.startsWith("http://") || href.startsWith("https://")) continue;
-
-    // não mexer em PDFs / assets
     if (href.toLowerCase().endsWith(".pdf")) continue;
 
     const u = new URL(href, location.origin);
 
-    // só páginas html do próprio site
-    if (!u.pathname.endsWith(".html") && !u.pathname.endsWith("/")) continue;
+    // só páginas html ou pastas do próprio site
+    const isHtml = u.pathname.endsWith(".html");
+    const isFolder = u.pathname.endsWith("/");
+    if (!isHtml && !isFolder) continue;
 
     u.searchParams.set("admin", "1");
     a.setAttribute("href", u.pathname + "?" + u.searchParams.toString() + u.hash);
   }
+}
+
+function keepRewritingNavForAWhile() {
+  // apanha navbars renderizados/trocados por bootstrap/JS
+  rewriteLinksForAdmin();
+  setTimeout(rewriteLinksForAdmin, 150);
+  setTimeout(rewriteLinksForAdmin, 450);
+  setTimeout(rewriteLinksForAdmin, 900);
+}
+
+/* ----------------- Auto-enter admin if logged -----------------
+   (fallback para quando algum link esquece admin=1) */
+function guardAdminParam() {
+  if (isAdminUrl) return;
+  const token = STORE.getItem(SS_TOKEN_KEY);
+  const on = STORE.getItem(SS_ON_KEY) === "1";
+  if (!token || !on) return;
+
+  const u = new URL(location.href);
+  u.searchParams.set("admin", "1");
+  location.replace(u.pathname + "?" + u.searchParams.toString() + u.hash);
 }
 
 /* ----------------- UI: toolbar + modals ----------------- */
@@ -337,7 +299,45 @@ function ensureModals() {
   });
 }
 
-/* ----------------- Admin mode: cache + enhance ----------------- */
+/* ----------------- Auto-scroll while dragging ----------------- */
+let __dragScrollRAF = null;
+let __dragScrollY = 0;
+
+function startDragAutoScroll() {
+  if (__dragScrollRAF) return;
+  const step = () => {
+    if (!dragEl) { stopDragAutoScroll(); return; }
+    if (__dragScrollY !== 0) window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
+    __dragScrollRAF = requestAnimationFrame(step);
+  };
+  __dragScrollRAF = requestAnimationFrame(step);
+}
+
+function stopDragAutoScroll() {
+  if (__dragScrollRAF) cancelAnimationFrame(__dragScrollRAF);
+  __dragScrollRAF = null;
+  __dragScrollY = 0;
+}
+
+function updateDragAutoScroll(clientY) {
+  const margin = 90;
+  const maxSpeed = 24;
+  const vh = window.innerHeight;
+
+  if (clientY < margin) {
+    const t = (margin - clientY) / margin;
+    __dragScrollY = -Math.ceil(maxSpeed * t);
+  } else if (clientY > vh - margin) {
+    const t = (clientY - (vh - margin)) / margin;
+    __dragScrollY = Math.ceil(maxSpeed * t);
+  } else {
+    __dragScrollY = 0;
+  }
+}
+
+/* ----------------- Cache + enhance ----------------- */
+const boxCache = new Map();
+
 async function refreshCacheAll() {
   const tasks = getBoxes().map(async (box) => {
     const items = await fetchJson(box.dataset.endpoint);
@@ -376,18 +376,13 @@ function makeDraggable(el) {
 }
 
 function getDragAfterElement(container, y) {
-  const els = [
-    ...container.querySelectorAll(".image-container:not(.dragging):not(.add-tile)"),
-  ];
-  return els.reduce(
-    (closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) return { offset, element: child };
-      return closest;
-    },
-    { offset: Number.NEGATIVE_INFINITY, element: null }
-  ).element;
+  const els = [...container.querySelectorAll(".image-container:not(.dragging):not(.add-tile)")];
+  return els.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: child };
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
 }
 
 function ensureAddTile(box) {
@@ -397,8 +392,9 @@ function ensureAddTile(box) {
 
   const tile = document.createElement("div");
   tile.className = "image-container add-tile";
-  const label =
-    box.dataset.kind === "fotografia" ? "➕ Adicionar nova fotografia" : "➕ Adicionar nova obra";
+  const label = box.dataset.kind === "fotografia"
+    ? "➕ Adicionar nova fotografia"
+    : "➕ Adicionar nova obra";
   tile.innerHTML = `${label}<br><small>(upload)</small>`;
   tile.addEventListener("click", (e) => {
     e.preventDefault();
@@ -453,7 +449,6 @@ function enhanceBox(box) {
     el.dataset.adminDraggable = "1";
     makeDraggable(el);
 
-    // impedir drag nativo da imagem
     const img = el.querySelector("img");
     if (img) {
       img.draggable = false;
@@ -474,13 +469,44 @@ function enhanceAllBoxes() {
   for (const box of getBoxes()) enhanceBoxWithRetry(box);
 }
 
+/* ----------------- Admin click interception (edit) ----------------- */
+let __adminCaptureInstalled = false;
+
+const adminCaptureClickHandler = (e) => {
+  if (!isAdminUrl || !adminOn) return;
+
+  const container = e.target.closest(".image-container");
+  if (!container) return;
+  if (container.classList.contains("add-tile")) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const box = container.closest(".box");
+  const id = container.dataset.id;
+  if (box && id) openEditModal(box.id, id);
+};
+
+function installAdminCapture() {
+  if (__adminCaptureInstalled) return;
+  document.addEventListener("click", adminCaptureClickHandler, true);
+  __adminCaptureInstalled = true;
+}
+
+function uninstallAdminCapture() {
+  if (!__adminCaptureInstalled) return;
+  document.removeEventListener("click", adminCaptureClickHandler, true);
+  __adminCaptureInstalled = false;
+}
+
+/* ----------------- turn on/off ----------------- */
 async function turnOnAdmin() {
   adminOn = true;
   document.body.classList.add("admin-on");
   show(q("#adminToolbar"), true);
   setDirty(false);
 
-  rewriteLinksForAdmin(); // ✅ mantém navbar em modo admin
+  keepRewritingNavForAWhile();
 
   try {
     await refreshCacheAll();
@@ -492,6 +518,7 @@ async function turnOnAdmin() {
 
 async function turnOffAdmin() {
   adminOn = false;
+  uninstallAdminCapture();
   setDirty(false);
   document.body.classList.remove("admin-on");
   show(q("#adminToolbar"), false);
@@ -505,7 +532,7 @@ async function turnOffAdmin() {
   }
 }
 
-/* ----------------- Save / Cancel order ----------------- */
+/* ----------------- Save/Cancel reorder ----------------- */
 function getOrderStateForBox(box) {
   const cols = [...box.querySelectorAll(".dream")];
   const items = [];
@@ -519,12 +546,8 @@ function getOrderStateForBox(box) {
 }
 
 async function saveAll() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    redirectToCentralLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   setText("adminToolbarStatus", "A guardar...");
 
@@ -584,10 +607,11 @@ async function refreshAllBoxes() {
   if (adminOn) {
     await refreshCacheAll();
     enhanceAllBoxes();
+    keepRewritingNavForAWhile();
   }
 }
 
-/* ----------------- Edit modal ----------------- */
+/* ----------------- Edit modal actions ----------------- */
 async function openEditModal(boxId, itemId) {
   ensureModals();
 
@@ -635,12 +659,8 @@ async function openEditModal(boxId, itemId) {
 }
 
 async function saveEdit() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    redirectToCentralLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   const id = q("#aEditId").value;
   const kind = q("#aEditKind").value;
@@ -691,12 +711,8 @@ async function saveEdit() {
 }
 
 async function deleteFromEdit() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    redirectToCentralLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   if (!confirm("Apagar esta imagem?")) return;
 
@@ -705,7 +721,10 @@ async function deleteFromEdit() {
   setText("aEditStatus", "A apagar...");
 
   try {
-    const endpoint = kind === "fotografia" ? `/api/admin/fotos/${id}` : `/api/admin/pinturas/${id}`;
+    const endpoint = (kind === "fotografia")
+      ? `/api/admin/fotos/${id}`
+      : `/api/admin/pinturas/${id}`;
+
     await fetchJson(endpoint, { method: "DELETE", headers: authHeaders(false) });
     show(q("#adminEditModal"), false);
     await refreshAllBoxes();
@@ -714,15 +733,11 @@ async function deleteFromEdit() {
   }
 }
 
-/* ----------------- Upload modal ----------------- */
+/* ----------------- Upload ----------------- */
 function openUploadModalForBox(box) {
   ensureModals();
-  try {
-    ensureLoggedIn();
-  } catch {
-    redirectToCentralLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   const kind = box.dataset.kind;
   const category = box.dataset.category || null;
@@ -734,8 +749,8 @@ function openUploadModalForBox(box) {
   q("#aUpCol").value = "1";
   q("#aUpFile").value = "";
 
-  q("#aUpCategoryWrap").style.display = kind === "fotografia" ? "" : "none";
-  q("#aUpPaintFields").style.display = kind === "fotografia" ? "none" : "";
+  q("#aUpCategoryWrap").style.display = (kind === "fotografia") ? "" : "none";
+  q("#aUpPaintFields").style.display = (kind === "fotografia") ? "none" : "";
 
   if (kind === "fotografia") {
     q("#aUpCategorySelect").value = category || "tema_livre";
@@ -750,12 +765,8 @@ function openUploadModalForBox(box) {
 }
 
 async function doUpload() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    redirectToCentralLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   setText("aUpStatus", "A enviar...");
 
@@ -765,10 +776,7 @@ async function doUpload() {
   const year = q("#aUpYear").value;
   const file = q("#aUpFile").files[0];
 
-  if (!file) {
-    setText("aUpStatus", "Escolhe uma imagem.");
-    return;
-  }
+  if (!file) { setText("aUpStatus", "Escolhe uma imagem."); return; }
 
   const fd = new FormData();
   fd.append("col", col);
@@ -798,6 +806,7 @@ async function doUpload() {
 
     const ct = res.headers.get("content-type") || "";
     const data = ct.includes("application/json") ? await res.json() : await res.text();
+
     if (!res.ok) {
       const msg = data?.detail ? data.detail : (typeof data === "string" ? data : `HTTP ${res.status}`);
       setText("aUpStatus", `Erro: ${msg}`);
@@ -812,10 +821,9 @@ async function doUpload() {
   }
 }
 
-/* ----------------- Logout + redirect ----------------- */
+/* ----------------- Login redirect + logout ----------------- */
 function redirectToCentralLogin() {
-  // manda para /admin com next
-  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  const next = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
   window.location.href = `/admin/?next=${next}`;
 }
 
@@ -825,49 +833,19 @@ async function logout() {
   STORE.removeItem(SS_ON_KEY);
   await turnOffAdmin();
 
-  // volta ao público (remove admin=1)
   const u = new URL(location.href);
   u.searchParams.delete("admin");
   location.href = u.pathname + (u.search ? u.search : "") + u.hash;
 }
 
-/* ----------------- Click interception (admin = editar) ----------------- */
-let __adminCaptureInstalled = false;
-
-const adminCaptureClickHandler = (e) => {
-  if (!isAdminUrl || !adminOn) return;
-
-  const container = e.target.closest(".image-container");
-  if (!container) return;
-  if (container.classList.contains("add-tile")) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  const box = container.closest(".box");
-  const id = container.dataset.id;
-  if (box && id) openEditModal(box.id, id);
-};
-
-function installAdminCapture() {
-  if (__adminCaptureInstalled) return;
-  document.addEventListener("click", adminCaptureClickHandler, true);
-  __adminCaptureInstalled = true;
-}
-
-function uninstallAdminCapture() {
-  if (!__adminCaptureInstalled) return;
-  document.removeEventListener("click", adminCaptureClickHandler, true);
-  __adminCaptureInstalled = false;
-}
-
 /* ----------------- Boot ----------------- */
 async function init() {
+  // fallback: if logged, keep admin=1 even when link forgets it
+  guardAdminParam();
+
   if (!getBoxes().length) return;
 
-  const url = new URL(window.location.href);
-  const wantAdmin = url.searchParams.get("admin") === "1";
-
+  const wantAdmin = new URL(location.href).searchParams.get("admin") === "1";
   if (!wantAdmin) {
     adminOn = false;
     STORE.removeItem(SS_ON_KEY);
@@ -877,20 +855,18 @@ async function init() {
   ensureToolbar();
   ensureModals();
 
-  // ✅ se não tens token, vai para login central
   if (!idToken) {
     redirectToCentralLogin();
     return;
   }
 
-  // ✅ valida permissões no backend antes de ligar overlays
+  // validate token permission
   try {
     await fetchJson("/api/admin/me", { method: "GET", headers: authHeaders(false) });
     STORE.setItem(SS_ON_KEY, "1");
-
     installAdminCapture();
     await turnOnAdmin();
-  } catch (e) {
+  } catch {
     idToken = null;
     STORE.removeItem(SS_TOKEN_KEY);
     STORE.removeItem(SS_ON_KEY);
