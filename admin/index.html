@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alice nas Artes — Admin</title>
+
+
+  <link rel="stylesheet" href="/src/styles/galery.css">
+  <link rel="stylesheet" href="/src/styles/admin_overlay.css">
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- IMPORTANTE: mete aqui o mesmo client_id que o backend valida -->
+  <script>
+    // Se já usas isto noutras páginas, mantém igual
+    window.__GOOGLE_CLIENT_ID__ = "1027193457255-477dt7inv5hk6i8gel876sicnmp3v6et.apps.googleusercontent.com";
+
+    window.__API_BASE__ = "https://live.alicenasartes.net";
+  </script>
+
+  <style>
+    /* login page simples */
+    .admin-login-wrap {
+      max-width: 520px;
+      margin: 80px auto;
+      background: rgba(255,255,255,0.85);
+      padding: 28px;
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+    }
+    .admin-login-wrap h1 { font-size: 28px; margin: 0 0 10px; }
+    .admin-login-wrap p { margin: 0 0 16px; opacity: .85; }
+    .status { margin-top: 12px; font-size: 14px; color: navy; }
+    .small { font-size: 12px; opacity: .7; margin-top: 12px; }
+  </style>
+</head>
+
+<body>
+  <div class="admin-login-wrap">
+    <h1>Modo Admin</h1>
+    <p>Faz login com a conta autorizada.</p>
+
+    <div id="gbtn"></div>
+    <div id="status" class="status"></div>
+
+    <div class="small">
+      Se entrares sem <code>next</code>, vais para o <code>index.html?admin=1</code>.
+    </div>
+  </div>
+
+  <script type="module">
+    import { fetchJson } from "/src/api_client.js";
+
+    const STORE = localStorage;
+    const SS_TOKEN_KEY = "alicenasartes_admin_id_token";
+    const SS_ON_KEY = "alicenasartes_admin_on";
+
+    const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__;
+    const statusEl = document.getElementById("status");
+
+    function setStatus(msg) { statusEl.textContent = msg || ""; }
+
+    function waitForGsi(timeoutMs = 8000) {
+      return new Promise((resolve, reject) => {
+        const t0 = Date.now();
+        const tick = () => {
+          if (window.google?.accounts?.id) return resolve();
+          if (Date.now() - t0 > timeoutMs) return reject(new Error("Google login não carregou."));
+          setTimeout(tick, 60);
+        };
+        tick();
+      });
+    }
+
+    function buildNextUrl() {
+      const params = new URLSearchParams(location.search);
+      const nextRaw = params.get("next") || "/index.html";
+      const u = new URL(nextRaw, location.origin);
+      u.searchParams.set("admin", "1");
+      return u.pathname + u.search + u.hash;
+    }
+
+    async function init() {
+      try {
+        await waitForGsi();
+      } catch (e) {
+        setStatus("Erro: " + e.message);
+        return;
+      }
+
+      if (!GOOGLE_CLIENT_ID) {
+        setStatus("Erro: __GOOGLE_CLIENT_ID__ não definido.");
+        return;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        auto_select: false,
+        callback: async (resp) => {
+          const token = resp.credential;
+          setStatus("A validar permissões...");
+
+          try {
+            // valida no backend (allowlist)
+            await fetchJson("/api/admin/me", {
+              method: "GET",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            // guarda e ativa
+            STORE.setItem(SS_TOKEN_KEY, token);
+            STORE.setItem(SS_ON_KEY, "1");
+
+            setStatus("Autenticada ✅ A redirecionar...");
+            location.href = buildNextUrl();
+          } catch (e) {
+            STORE.removeItem(SS_TOKEN_KEY);
+            STORE.removeItem(SS_ON_KEY);
+            setStatus("Sem permissões: " + e.message);
+          }
+        },
+      });
+
+      window.google.accounts.id.renderButton(document.getElementById("gbtn"), {
+        theme: "outline",
+        size: "large",
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
