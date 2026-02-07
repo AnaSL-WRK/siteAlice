@@ -1,118 +1,114 @@
 // src/admin_overlay.js
 // Admin overlays on top of the *existing* public pages.
-// - Login with Google (GSI) -> toggles admin mode.
-// - Drag to reorder (within each gallery box), then Save/Cancel on a top toolbar.
-// - Click an image to edit metadata.
-// - "Add new" tile opens an upload modal.
+// - Central login at /admin (stores token in localStorage)
+// - Pages enter admin mode ONLY if ?admin=1
+// - Drag to reorder, Save/Cancel toolbar
+// - Click image to edit metadata
+// - "Add new" tile opens upload modal
+// - Keep admin=1 across navbar links
+// - Auto-scroll while dragging
 
-import { fetchJson, apiBase, resolveUrl } from './api_client.js';
-import { renderBox } from './gallery_modal.js';
+import { fetchJson, apiBase, resolveUrl } from "./api_client.js";
+import { renderBox } from "./gallery_modal.js";
 
-const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__ || '1027193457255-477dt7inv5hk6i8gel876sicnmp3v6et.apps.googleusercontent.com';
+const SS_TOKEN_KEY = "alicenasartes_admin_id_token";
+const SS_ON_KEY = "alicenasartes_admin_on";
+const STORE = localStorage;
 
-const SS_TOKEN_KEY = 'alicenasartes_admin_id_token';
-const SS_ON_KEY = 'alicenasartes_admin_on';
-
-let idToken = sessionStorage.getItem(SS_TOKEN_KEY) || null;
-let adminOn = sessionStorage.getItem(SS_ON_KEY) === '1';
+let idToken = STORE.getItem(SS_TOKEN_KEY) || null;
+let adminOn = STORE.getItem(SS_ON_KEY) === "1";
 let dirty = false;
 
 let dragEl = null;
 let dragOriginBoxId = null;
 
-// ---- auto-scroll while dragging ----
-let __dragScrollRAF = null;
-let __dragScrollY = 0;
-
-function startDragAutoScroll() {
-  if (__dragScrollRAF) return; // já está a correr
-  const step = () => {
-    if (!dragEl) { stopDragAutoScroll(); return; }
-    if (__dragScrollY !== 0) {
-      window.scrollBy({ top: __dragScrollY, left: 0, behavior: 'auto' });
-    }
-    __dragScrollRAF = requestAnimationFrame(step);
-  };
-  __dragScrollRAF = requestAnimationFrame(step);
-}
-
-function stopDragAutoScroll() {
-  if (__dragScrollRAF) cancelAnimationFrame(__dragScrollRAF);
-  __dragScrollRAF = null;
-  __dragScrollY = 0;
-}
-
-function updateDragAutoScroll(clientY) {
-  const margin = 90;    // zona sensível ao topo/baixo
-  const maxSpeed = 24;  // velocidade máxima
-
-  const vh = window.innerHeight;
-  if (clientY < margin) {
-    const t = (margin - clientY) / margin; // 0..1
-    __dragScrollY = -Math.ceil(maxSpeed * t);
-  } else if (clientY > vh - margin) {
-    const t = (clientY - (vh - margin)) / margin; // 0..1
-    __dragScrollY = Math.ceil(maxSpeed * t);
-  } else {
-    __dragScrollY = 0;
-  }
-}
-
-
-const isAdminUrl = new URL(window.location.href).searchParams.get('admin') === '1';
-if (!isAdminUrl) {
-  adminOn = false;
-  sessionStorage.removeItem(SS_ON_KEY);
-}
-
-
-// Cache items per box (boxId -> Map<id,item>)
-const boxCache = new Map();
+const urlNow = new URL(window.location.href);
+const isAdminUrl = urlNow.searchParams.get("admin") === "1";
 
 /* ----------------- DOM helpers ----------------- */
 function q(sel, root = document) { return root.querySelector(sel); }
 function qa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
-
-function getBoxes() {
-  return qa('.box[data-endpoint][data-kind]');
-}
+function getBoxes() { return qa(".box[data-endpoint][data-kind]"); }
 
 function show(el, on) {
   if (!el) return;
-  el.style.display = on ? 'flex' : 'none';
+  el.style.display = on ? "flex" : "none";
 }
-
 function setText(id, txt) {
   const el = document.getElementById(id);
-  if (el) el.textContent = txt || '';
+  if (el) el.textContent = txt || "";
 }
-
 function authHeaders(json = true) {
   const h = { Authorization: `Bearer ${idToken}` };
-  if (json) h['Content-Type'] = 'application/json';
+  if (json) h["Content-Type"] = "application/json";
   return h;
 }
-
 function ensureLoggedIn() {
-  if (!idToken) throw new Error('Faz login com Google primeiro.');
+  if (!idToken) throw new Error("Sessão expirada. Faz login novamente.");
 }
-
 function setDirty(on) {
   dirty = !!on;
-  const saveBtn = q('#adminBtnSave');
+  const saveBtn = q("#adminBtnSave");
   if (saveBtn) saveBtn.disabled = !dirty;
-  setText('adminToolbarStatus', dirty ? 'Alterações por guardar' : '');
+  setText("adminToolbarStatus", dirty ? "Alterações por guardar" : "");
 }
 
-/* ----------------- UI: toolbar + FAB + modals ----------------- */
+/* ----------------- Navbar keep ?admin=1 ----------------- */
+function rewriteLinksForAdmin() {
+  if (!isAdminUrl || !adminOn || !idToken) return;
 
+  for (const a of qa("a[href]")) {
+    const href = a.getAttribute("href");
+    if (!href) continue;
+
+    if (href.startsWith("#")) continue;
+    if (href.startsWith("mailto:")) continue;
+    if (href.startsWith("http://") || href.startsWith("https://")) continue;
+    if (href.toLowerCase().endsWith(".pdf")) continue;
+
+    const u = new URL(href, location.origin);
+
+    const isHtml = u.pathname.endsWith(".html");
+    const isFolder = u.pathname.endsWith("/");
+    if (!isHtml && !isFolder) continue;
+
+    u.searchParams.set("admin", "1");
+    a.setAttribute(
+      "href",
+      u.pathname + "?" + u.searchParams.toString() + u.hash
+    );
+  }
+}
+
+function keepRewritingNavForAWhile() {
+  // apanha navbars renderizados/trocados por bootstrap/JS
+  rewriteLinksForAdmin();
+  setTimeout(rewriteLinksForAdmin, 150);
+  setTimeout(rewriteLinksForAdmin, 450);
+  setTimeout(rewriteLinksForAdmin, 900);
+}
+
+/* ----------------- Auto-repor ?admin=1 se já estiveres em sessão ----------------- */
+function guardAdminParam() {
+  const token = STORE.getItem(SS_TOKEN_KEY);
+  const on = STORE.getItem(SS_ON_KEY) === "1";
+  if (!token || !on) return;
+
+  const u = new URL(location.href);
+  if (u.searchParams.get("admin") === "1") return; // já está
+
+  u.searchParams.set("admin", "1");
+  location.replace(u.pathname + "?" + u.searchParams.toString() + u.hash);
+}
+
+/* ----------------- UI: toolbar + modals ----------------- */
 function ensureToolbar() {
-  if (q('#adminToolbar')) return;
+  if (q("#adminToolbar")) return;
 
-  const bar = document.createElement('div');
-  bar.id = 'adminToolbar';
-  bar.className = 'admin-toolbar';
-  bar.style.display = 'none';
+  const bar = document.createElement("div");
+  bar.id = "adminToolbar";
+  bar.className = "admin-toolbar";
+  bar.style.display = "none";
   bar.innerHTML = `
     <div class="left">
       <span class="status" style="font-weight:800;">Modo Admin</span>
@@ -121,44 +117,22 @@ function ensureToolbar() {
     <div class="right">
       <button id="adminBtnSave" class="primary" type="button" disabled>Guardar</button>
       <button id="adminBtnCancel" class="secondary" type="button">Cancelar</button>
-      <button id="adminBtnSwitch" class="secondary" type="button">Trocar conta</button>
       <button id="adminBtnLogout" class="danger" type="button">Sair</button>
     </div>
   `;
   document.body.appendChild(bar);
 
-  q('#adminBtnSave').addEventListener('click', saveAll);
-  q('#adminBtnCancel').addEventListener('click', cancelAll);
-  q('#adminBtnLogout').addEventListener('click', logout);
-  q('#adminBtnSwitch').addEventListener('click', switchAccount);
+  q("#adminBtnSave").addEventListener("click", saveAll);
+  q("#adminBtnCancel").addEventListener("click", cancelAll);
+  q("#adminBtnLogout").addEventListener("click", logout);
 }
 
 function ensureModals() {
-  if (!q('#adminLoginModal')) {
-    const el = document.createElement('div');
-    el.id = 'adminLoginModal';
-    el.className = 'a-modal';
-    el.innerHTML = `
-      <div class="a-content">
-        <span class="a-close" data-close="adminLoginModal">&times;</span>
-        <h3>Modo Admin</h3>
-        <div style="color: navy; font-size: 13px; opacity:.85; margin-bottom: 10px;">
-          Faz login com a conta autorizada.
-        </div>
-        <div id="adminGbtn"></div>
-        <div class="status" id="adminLoginStatus"></div>
-        <div class="actions">
-          <button class="secondary" type="button" data-close="adminLoginModal">Fechar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(el);
-  }
-
-  if (!q('#adminEditModal')) {
-    const el = document.createElement('div');
-    el.id = 'adminEditModal';
-    el.className = 'a-modal';
+  // Edit modal
+  if (!q("#adminEditModal")) {
+    const el = document.createElement("div");
+    el.id = "adminEditModal";
+    el.className = "a-modal";
     el.innerHTML = `
       <div class="a-content">
         <span class="a-close" data-close="adminEditModal">&times;</span>
@@ -222,14 +196,15 @@ function ensureModals() {
     `;
     document.body.appendChild(el);
 
-    q('#aBtnSaveEdit').addEventListener('click', saveEdit);
-    q('#aBtnDeleteEdit').addEventListener('click', deleteFromEdit);
+    q("#aBtnSaveEdit").addEventListener("click", saveEdit);
+    q("#aBtnDeleteEdit").addEventListener("click", deleteFromEdit);
   }
 
-  if (!q('#adminUploadModal')) {
-    const el = document.createElement('div');
-    el.id = 'adminUploadModal';
-    el.className = 'a-modal';
+  // Upload modal
+  if (!q("#adminUploadModal")) {
+    const el = document.createElement("div");
+    el.id = "adminUploadModal";
+    el.className = "a-modal";
     el.innerHTML = `
       <div class="a-content">
         <span class="a-close" data-close="adminUploadModal">&times;</span>
@@ -296,117 +271,74 @@ function ensureModals() {
     `;
     document.body.appendChild(el);
 
-    q('#aBtnDoUpload').addEventListener('click', doUpload);
+    q("#aBtnDoUpload").addEventListener("click", doUpload);
   }
 
   // close handlers (delegated)
-  document.addEventListener('click', (e) => {
-    const close = e.target.closest('[data-close]');
+  document.addEventListener("click", (e) => {
+    const close = e.target.closest("[data-close]");
     if (!close) return;
-    const id = close.getAttribute('data-close');
+    const id = close.getAttribute("data-close");
     const m = document.getElementById(id);
     if (m) show(m, false);
   });
 
-  // close modal on backdrop click
-  for (const m of qa('.a-modal')) {
-    m.addEventListener('click', (e) => {
+  for (const m of qa(".a-modal")) {
+    m.addEventListener("click", (e) => {
       if (e.target === m) show(m, false);
     });
   }
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    for (const m of qa('.a-modal')) show(m, false);
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    for (const m of qa(".a-modal")) show(m, false);
   });
 }
 
-/* ----------------- Google Login (GSI) ----------------- */
-let gsiInitialized = false;
+/* ----------------- Auto-scroll while dragging ----------------- */
+let __dragScrollRAF = null;
+let __dragScrollY = 0;
 
-function waitForGsi(timeoutMs = 6000) {
-  return new Promise((resolve, reject) => {
-    const t0 = Date.now();
-    const tick = () => {
-      if (window.google?.accounts?.id) return resolve();
-      if (Date.now() - t0 > timeoutMs) return reject(new Error('Google login não carregou. Confirma se incluíste o script GSI.'));
-      setTimeout(tick, 50);
-    };
-    tick();
-  });
+function startDragAutoScroll() {
+  if (__dragScrollRAF) return;
+  const step = () => {
+    if (!dragEl) { stopDragAutoScroll(); return; }
+    if (__dragScrollY !== 0) {
+      window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
+    }
+    __dragScrollRAF = requestAnimationFrame(step);
+  };
+  __dragScrollRAF = requestAnimationFrame(step);
 }
 
-async function initGsi() {
-  if (gsiInitialized) return;
-  await waitForGsi();
-  gsiInitialized = true;
+function stopDragAutoScroll() {
+  if (__dragScrollRAF) cancelAnimationFrame(__dragScrollRAF);
+  __dragScrollRAF = null;
+  __dragScrollY = 0;
+}
 
-  window.google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    auto_select: false,
-    callback: async (response) => {
-      const token = response.credential;
+function updateDragAutoScroll(clientY) {
+  const margin = 90;
+  const maxSpeed = 24;
+  const vh = window.innerHeight;
 
-      // Verify permission server-side (email allowlist) before enabling overlays
-      try {
-        idToken = token;
-        await fetchJson('/api/admin/me', { method: 'GET', headers: authHeaders(false) });
-      } catch (e) {
-        idToken = null;
-        sessionStorage.removeItem(SS_TOKEN_KEY);
-        sessionStorage.removeItem(SS_ON_KEY);
-        setText('adminLoginStatus', `Sem permissões: ${e.message}`);
-        return;
-      }
-
-      sessionStorage.setItem(SS_TOKEN_KEY, token);
-      sessionStorage.setItem(SS_ON_KEY, '1');
-      setText('adminLoginStatus', 'Autenticada ✅');
-      show(q('#adminLoginModal'), false);
-      await turnOnAdmin();
-    },
-  });
-
-  const btnMount = q('#adminGbtn');
-  if (btnMount) {
-    window.google.accounts.id.renderButton(btnMount, { theme: 'outline', size: 'large' });
+  if (clientY < margin) {
+    const t = (margin - clientY) / margin;
+    __dragScrollY = -Math.ceil(maxSpeed * t);
+  } else if (clientY > vh - margin) {
+    const t = (clientY - (vh - margin)) / margin;
+    __dragScrollY = Math.ceil(maxSpeed * t);
+  } else {
+    __dragScrollY = 0;
   }
 }
 
-async function openLogin() {
-  ensureModals();
-  setText('adminLoginStatus', '');
-  show(q('#adminLoginModal'), true);
-  try {
-    await initGsi();
-  } catch (e) {
-    setText('adminLoginStatus', `Erro: ${e.message}`);
-  }
-}
+/* ----------------- Cache + enhance ----------------- */
+const boxCache = new Map();
 
-function switchAccount() {
-  try {
-    window.google.accounts.id.disableAutoSelect();
-    window.google.accounts.id.prompt();
-  } catch {
-    // ignore
-  }
-}
-
-async function logout() {
-  idToken = null;
-  sessionStorage.removeItem(SS_TOKEN_KEY);
-  sessionStorage.removeItem(SS_ON_KEY);
-  await turnOffAdmin();
-  try { window.google.accounts.id.disableAutoSelect(); } catch {}
-}
-
-
-/* ----------------- Admin mode: cache + enhance ----------------- */
 async function refreshCacheAll() {
   const tasks = getBoxes().map(async (box) => {
-    const endpoint = box.dataset.endpoint;
-    const items = await fetchJson(endpoint);
+    const items = await fetchJson(box.dataset.endpoint);
     const map = new Map();
     for (const it of items) map.set(String(it.id), it);
     boxCache.set(box.id, map);
@@ -417,40 +349,34 @@ async function refreshCacheAll() {
 function makeDraggable(el) {
   el.draggable = true;
 
-  el.addEventListener('dragstart', (e) => {
+  el.addEventListener("dragstart", (e) => {
     dragEl = el;
-    dragOriginBoxId = el.closest('.box')?.id || null;
-    el.classList.add('dragging');
+    dragOriginBoxId = el.closest(".box")?.id || null;
+    el.classList.add("dragging");
 
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', el.dataset.id || '');
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", el.dataset.id || "");
 
-    //começa o auto-scroll
     startDragAutoScroll();
   });
 
-  // Durante o drag, atualiza direção/velocidade do scroll (quando houver clientY útil)
-  el.addEventListener('drag', (e) => {
-    if (typeof e.clientY === 'number' && e.clientY > 0) {
+  el.addEventListener("drag", (e) => {
+    if (typeof e.clientY === "number" && e.clientY > 0) {
       updateDragAutoScroll(e.clientY);
     }
   });
 
-  el.addEventListener('dragend', () => {
-    el.classList.remove('dragging');
+  el.addEventListener("dragend", () => {
+    el.classList.remove("dragging");
     dragEl = null;
     dragOriginBoxId = null;
-
-    //pára o auto-scroll
     stopDragAutoScroll();
-
     setDirty(true);
   });
 }
 
-
 function getDragAfterElement(container, y) {
-  const els = [...container.querySelectorAll('.image-container:not(.dragging):not(.add-tile)')];
+  const els = [...container.querySelectorAll(".image-container:not(.dragging):not(.add-tile)")];
   return els.reduce((closest, child) => {
     const box = child.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
@@ -460,52 +386,50 @@ function getDragAfterElement(container, y) {
 }
 
 function ensureAddTile(box) {
-  const col1 = box.querySelector('.dream');
+  const col1 = box.querySelector(".dream");
   if (!col1) return;
+  if (col1.querySelector(".add-tile")) return;
 
-  if (col1.querySelector('.add-tile')) return;
-
-  const tile = document.createElement('div');
-  tile.className = 'image-container add-tile';
-  const label = box.dataset.kind === 'fotografia'
-    ? '➕ Adicionar nova fotografia'
-    : '➕ Adicionar nova obra';
+  const tile = document.createElement("div");
+  tile.className = "image-container add-tile";
+  const label = box.dataset.kind === "fotografia"
+    ? "➕ Adicionar nova fotografia"
+    : "➕ Adicionar nova obra";
   tile.innerHTML = `${label}<br><small>(upload)</small>`;
-  tile.addEventListener('click', (e) => {
+  tile.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     openUploadModalForBox(box);
   });
 
-  // tile always first
   col1.insertBefore(tile, col1.firstChild);
 }
 
 function ensureEditBadges(box) {
-  for (const node of box.querySelectorAll('.image-container')) {
-    if (node.classList.contains('add-tile')) continue;
-    if (node.querySelector('.admin-badge')) continue;
-    const badge = document.createElement('div');
-    badge.className = 'admin-badge';
-    badge.textContent = '✎';
+  for (const node of box.querySelectorAll(".image-container")) {
+    if (node.classList.contains("add-tile")) continue;
+    if (node.querySelector(".admin-badge")) continue;
+    const badge = document.createElement("div");
+    badge.className = "admin-badge";
+    badge.textContent = "✎";
     node.appendChild(badge);
   }
 }
 
 function setupDropZones(box) {
-  if (box.dataset.adminDropzones === '1') return;
-  box.dataset.adminDropzones = '1';
+  if (box.dataset.adminDropzones === "1") return;
+  box.dataset.adminDropzones = "1";
 
-  for (const colEl of box.querySelectorAll('.dream')) {
-    colEl.addEventListener('dragover', (e) => {
+  for (const colEl of box.querySelectorAll(".dream")) {
+    colEl.addEventListener("dragover", (e) => {
       if (!dragEl) return;
-      if ((colEl.closest('.box')?.id || null) !== dragOriginBoxId) return; // prevent cross-box moves
+      if ((colEl.closest(".box")?.id || null) !== dragOriginBoxId) return;
 
       e.preventDefault();
       updateDragAutoScroll(e.clientY);
 
       const after = getDragAfterElement(colEl, e.clientY);
-      const addTile = colEl.querySelector('.add-tile');
+      const addTile = colEl.querySelector(".add-tile");
       if (addTile && dragEl === addTile) return;
 
       if (after == null) colEl.appendChild(dragEl);
@@ -519,25 +443,22 @@ function enhanceBox(box) {
   ensureEditBadges(box);
   setupDropZones(box);
 
-  for (const el of box.querySelectorAll('.image-container')) {
-    if (el.classList.contains('add-tile')) continue;
-    if (el.dataset.adminDraggable === '1') continue;
-    el.dataset.adminDraggable = '1';
+  for (const el of box.querySelectorAll(".image-container")) {
+    if (el.classList.contains("add-tile")) continue;
+    if (el.dataset.adminDraggable === "1") continue;
+    el.dataset.adminDraggable = "1";
     makeDraggable(el);
 
-  //impede o drag nativo da imagem (que dá o cursor proibido)
-  const img = el.querySelector('img');
-  if (img) {
-    img.draggable = false;
-    img.addEventListener('dragstart', (ev) => ev.preventDefault());
-  }
-
+    const img = el.querySelector("img");
+    if (img) {
+      img.draggable = false;
+      img.addEventListener("dragstart", (ev) => ev.preventDefault());
+    }
   }
 }
 
 function enhanceBoxWithRetry(box, tries = 0) {
-  // renderBox populates columns asynchronously; wait for .dream
-  if (!box.querySelector('.dream')) {
+  if (!box.querySelector(".dream")) {
     if (tries < 25) setTimeout(() => enhanceBoxWithRetry(box, tries + 1), 80);
     return;
   }
@@ -548,19 +469,50 @@ function enhanceAllBoxes() {
   for (const box of getBoxes()) enhanceBoxWithRetry(box);
 }
 
+/* ----------------- Admin click interception (edit) ----------------- */
+let __adminCaptureInstalled = false;
+
+const adminCaptureClickHandler = (e) => {
+  if (!isAdminUrl || !adminOn) return;
+
+  const container = e.target.closest(".image-container");
+  if (!container) return;
+  if (container.classList.contains("add-tile")) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const box = container.closest(".box");
+  const id = container.dataset.id;
+  if (box && id) openEditModal(box.id, id);
+};
+
+function installAdminCapture() {
+  if (__adminCaptureInstalled) return;
+  document.addEventListener("click", adminCaptureClickHandler, true);
+  __adminCaptureInstalled = true;
+}
+
+function uninstallAdminCapture() {
+  if (!__adminCaptureInstalled) return;
+  document.removeEventListener("click", adminCaptureClickHandler, true);
+  __adminCaptureInstalled = false;
+}
+
+/* ----------------- turn on/off ----------------- */
 async function turnOnAdmin() {
   adminOn = true;
-  installAdminCapture();
-  document.body.classList.add('admin-on');
-  show(q('#adminToolbar'), true);
+  document.body.classList.add("admin-on");
+  show(q("#adminToolbar"), true);
   setDirty(false);
+
+  keepRewritingNavForAWhile();
 
   try {
     await refreshCacheAll();
     enhanceAllBoxes();
   } catch (e) {
-    // token might be expired -> show login again
-    setText('adminToolbarStatus', `Erro: ${e.message}`);
+    setText("adminToolbarStatus", `Erro: ${e.message}`);
   }
 }
 
@@ -568,73 +520,36 @@ async function turnOffAdmin() {
   adminOn = false;
   uninstallAdminCapture();
   setDirty(false);
-  document.body.classList.remove('admin-on');
-  show(q('#adminToolbar'), false);
+  document.body.classList.remove("admin-on");
+  show(q("#adminToolbar"), false);
 
-  // cleanup: remove add tiles & badges (keep public page clean)
-  for (const t of qa('.add-tile')) t.remove();
-  for (const b of qa('.admin-badge')) b.remove();
+  for (const t of qa(".add-tile")) t.remove();
+  for (const b of qa(".admin-badge")) b.remove();
 
-  // disable dragging on public mode
-  for (const el of qa('.image-container')) {
+  for (const el of qa(".image-container")) {
     el.draggable = false;
     delete el.dataset.adminDraggable;
   }
 }
 
-/* ----------------- Click interception (installed only in admin mode) ----------------- */
-let __adminCaptureInstalled = false;
-
-const adminCaptureClickHandler = (e) => {
-  if (!isAdminUrl || !adminOn) return;
-
-  const container = e.target.closest('.image-container');
-  if (!container) return;
-  if (container.classList.contains('add-tile')) return;
-
-  // Em admin mode, click = editar (impede modal público)
-  e.preventDefault();
-  e.stopPropagation();
-
-  const box = container.closest('.box');
-  const id = container.dataset.id;
-  if (box && id) openEditModal(box.id, id);
-};
-
-function installAdminCapture() {
-  if (__adminCaptureInstalled) return;
-  document.addEventListener('click', adminCaptureClickHandler, true); // capture
-  __adminCaptureInstalled = true;
-}
-
-function uninstallAdminCapture() {
-  if (!__adminCaptureInstalled) return;
-  document.removeEventListener('click', adminCaptureClickHandler, true); // capture
-  __adminCaptureInstalled = false;
-}
-
-/* ----------------- Save / Cancel order ----------------- */
+/* ----------------- Save/Cancel reorder ----------------- */
 function getOrderStateForBox(box) {
-  const cols = [...box.querySelectorAll('.dream')];
+  const cols = [...box.querySelectorAll(".dream")];
   const items = [];
   cols.forEach((colEl, idx) => {
-    const ids = [...colEl.querySelectorAll('.image-container')]
-      .filter(n => !n.classList.contains('add-tile'))
-      .map(n => n.dataset.id);
+    const ids = [...colEl.querySelectorAll(".image-container")]
+      .filter((n) => !n.classList.contains("add-tile"))
+      .map((n) => n.dataset.id);
     ids.forEach((id, j) => items.push({ id, col: idx + 1, col_order: j + 1 }));
   });
   return items;
 }
 
 async function saveAll() {
-  try {
-    ensureLoggedIn();
-  } catch (e) {
-    await openLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
-  setText('adminToolbarStatus', 'A guardar...');
+  setText("adminToolbarStatus", "A guardar...");
 
   const fotosItems = [];
   const pinturasItems = [];
@@ -642,60 +557,61 @@ async function saveAll() {
   for (const box of getBoxes()) {
     const kind = box.dataset.kind;
     const items = getOrderStateForBox(box);
-    if (kind === 'fotografia') {
+
+    if (kind === "fotografia") {
       const category = box.dataset.category || null;
       for (const it of items) fotosItems.push({ ...it, category });
     } else {
-      // pinturas | mista
       for (const it of items) pinturasItems.push({ ...it, type: kind });
     }
   }
 
   try {
     if (fotosItems.length) {
-      await fetchJson('/api/admin/reorder/fotos', {
-        method: 'POST',
+      await fetchJson("/api/admin/reorder/fotos", {
+        method: "POST",
         headers: authHeaders(true),
         body: JSON.stringify({ items: fotosItems }),
       });
     }
-
     if (pinturasItems.length) {
-      await fetchJson('/api/admin/reorder/pinturas', {
-        method: 'POST',
+      await fetchJson("/api/admin/reorder/pinturas", {
+        method: "POST",
         headers: authHeaders(true),
         body: JSON.stringify({ items: pinturasItems }),
       });
     }
 
     setDirty(false);
-    setText('adminToolbarStatus', 'Guardado ✅');
+    setText("adminToolbarStatus", "Guardado ✅");
     await refreshAllBoxes();
   } catch (e) {
-    setText('adminToolbarStatus', `Erro: ${e.message}`);
+    setText("adminToolbarStatus", `Erro: ${e.message}`);
   }
 }
 
 async function cancelAll() {
-  setText('adminToolbarStatus', 'A reverter...');
+  setText("adminToolbarStatus", "A reverter...");
   setDirty(false);
   await refreshAllBoxes();
-  setText('adminToolbarStatus', '');
+  setText("adminToolbarStatus", "");
 }
 
 async function refreshAllBoxes() {
   const tasks = getBoxes().map(async (box) => {
-    const overlayMode = box.dataset.overlay || 'none';
+    const overlayMode = box.dataset.overlay || "none";
     await renderBox({ boxId: box.id, endpoint: box.dataset.endpoint, overlayMode });
   });
   await Promise.all(tasks);
+
   if (adminOn) {
     await refreshCacheAll();
     enhanceAllBoxes();
+    keepRewritingNavForAWhile();
   }
 }
 
-/* ----------------- Edit modal ----------------- */
+/* ----------------- Edit modal actions ----------------- */
 async function openEditModal(boxId, itemId) {
   ensureModals();
 
@@ -705,7 +621,6 @@ async function openEditModal(boxId, itemId) {
   const kind = box.dataset.kind;
   let item = boxCache.get(boxId)?.get(String(itemId)) || null;
 
-  // fallback: reload cache for this box if missing
   if (!item) {
     try {
       const items = await fetchJson(box.dataset.endpoint);
@@ -713,85 +628,76 @@ async function openEditModal(boxId, itemId) {
       for (const it of items) map.set(String(it.id), it);
       boxCache.set(boxId, map);
       item = map.get(String(itemId)) || null;
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
-
   if (!item) return;
 
-  q('#aEditBoxId').value = boxId;
-  q('#aEditKind').value = kind;
-  q('#aEditId').value = String(item.id);
-  q('#aEditPreview').src = resolveUrl(item.url);
-  q('#aEditTitle').value = item.title || '';
-  q('#aEditYear').value = item.year ?? '';
+  q("#aEditBoxId").value = boxId;
+  q("#aEditKind").value = kind;
+  q("#aEditId").value = String(item.id);
+  q("#aEditPreview").src = resolveUrl(item.url);
+  q("#aEditTitle").value = item.title || "";
+  q("#aEditYear").value = item.year ?? "";
 
-  // fotografia fields
-  const catWrap = q('#aEditCategoryWrap');
-  const paintWrap = q('#aEditPaintFields');
-  if (kind === 'fotografia') {
-    catWrap.style.display = '';
-    paintWrap.style.display = 'none';
-    q('#aEditCategory').value = item.category || box.dataset.category || 'tema_livre';
+  const catWrap = q("#aEditCategoryWrap");
+  const paintWrap = q("#aEditPaintFields");
+
+  if (kind === "fotografia") {
+    catWrap.style.display = "";
+    paintWrap.style.display = "none";
+    q("#aEditCategory").value = item.category || box.dataset.category || "tema_livre";
   } else {
-    catWrap.style.display = 'none';
-    paintWrap.style.display = '';
-    q('#aEditTechnique').value = item.technique || '';
-    q('#aEditDimensions').value = item.dimensions || '';
-    q('#aEditType').value = item.type || kind;
+    catWrap.style.display = "none";
+    paintWrap.style.display = "";
+    q("#aEditTechnique").value = item.technique || "";
+    q("#aEditDimensions").value = item.dimensions || "";
+    q("#aEditType").value = item.type || kind;
   }
 
-  setText('aEditStatus', '');
-  show(q('#adminEditModal'), true);
+  setText("aEditStatus", "");
+  show(q("#adminEditModal"), true);
 }
 
 async function saveEdit() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    await openLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
-  const id = q('#aEditId').value;
-  const kind = q('#aEditKind').value;
-  const boxId = q('#aEditBoxId').value;
+  const id = q("#aEditId").value;
+  const kind = q("#aEditKind").value;
+  const boxId = q("#aEditBoxId").value;
 
-  setText('aEditStatus', 'A guardar...');
+  setText("aEditStatus", "A guardar...");
 
   try {
-    if (kind === 'fotografia') {
+    if (kind === "fotografia") {
       const payload = {
-        title: q('#aEditTitle').value || null,
-        year: q('#aEditYear').value ? Number(q('#aEditYear').value) : null,
-        category: q('#aEditCategory').value || null,
+        title: q("#aEditTitle").value || null,
+        year: q("#aEditYear").value ? Number(q("#aEditYear").value) : null,
+        category: q("#aEditCategory").value || null,
       };
       await fetchJson(`/api/admin/fotos/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: authHeaders(true),
         body: JSON.stringify(payload),
       });
     } else {
       const payload = {
-        title: q('#aEditTitle').value || null,
-        year: q('#aEditYear').value ? Number(q('#aEditYear').value) : null,
-        technique: q('#aEditTechnique').value || null,
-        dimensions: q('#aEditDimensions').value || null,
-        type: q('#aEditType').value || kind,
+        title: q("#aEditTitle").value || null,
+        year: q("#aEditYear").value ? Number(q("#aEditYear").value) : null,
+        technique: q("#aEditTechnique").value || null,
+        dimensions: q("#aEditDimensions").value || null,
+        type: q("#aEditType").value || kind,
       };
       await fetchJson(`/api/admin/pinturas/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: authHeaders(true),
         body: JSON.stringify(payload),
       });
     }
 
-    // update UI
-    show(q('#adminEditModal'), false);
+    show(q("#adminEditModal"), false);
     await refreshAllBoxes();
 
-    // keep cache warm
     const b = document.getElementById(boxId);
     if (b) {
       const items = await fetchJson(b.dataset.endpoint);
@@ -800,167 +706,176 @@ async function saveEdit() {
       boxCache.set(boxId, map);
     }
   } catch (e) {
-    setText('aEditStatus', `Erro: ${e.message}`);
+    setText("aEditStatus", `Erro: ${e.message}`);
   }
 }
 
 async function deleteFromEdit() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    await openLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
-  if (!confirm('Apagar esta imagem?')) return;
+  if (!confirm("Apagar esta imagem?")) return;
 
-  const id = q('#aEditId').value;
-  const kind = q('#aEditKind').value;
-  setText('aEditStatus', 'A apagar...');
+  const id = q("#aEditId").value;
+  const kind = q("#aEditKind").value;
+  setText("aEditStatus", "A apagar...");
 
   try {
-    const endpoint = (kind === 'fotografia')
+    const endpoint = (kind === "fotografia")
       ? `/api/admin/fotos/${id}`
       : `/api/admin/pinturas/${id}`;
 
-    await fetchJson(endpoint, {
-      method: 'DELETE',
-      headers: authHeaders(false),
-    });
-
-    show(q('#adminEditModal'), false);
+    await fetchJson(endpoint, { method: "DELETE", headers: authHeaders(false) });
+    show(q("#adminEditModal"), false);
     await refreshAllBoxes();
   } catch (e) {
-    setText('aEditStatus', `Erro: ${e.message}`);
+    setText("aEditStatus", `Erro: ${e.message}`);
   }
 }
 
-/* ----------------- Upload modal ----------------- */
+/* ----------------- Upload ----------------- */
 function openUploadModalForBox(box) {
   ensureModals();
-  try {
-    ensureLoggedIn();
-  } catch {
-    // if the admin clicks "add" while not logged in
-    openLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
   const kind = box.dataset.kind;
   const category = box.dataset.category || null;
 
-  q('#aUpKind').value = kind;
-  q('#aUpCategory').value = category || '';
-  q('#aUpTitle').value = '';
-  q('#aUpYear').value = '';
-  q('#aUpCol').value = '1';
-  q('#aUpFile').value = '';
+  q("#aUpKind").value = kind;
+  q("#aUpCategory").value = category || "";
+  q("#aUpTitle").value = "";
+  q("#aUpYear").value = "";
+  q("#aUpCol").value = "1";
+  q("#aUpFile").value = "";
 
-  // show/hide groups
-  q('#aUpCategoryWrap').style.display = (kind === 'fotografia') ? '' : 'none';
-  q('#aUpPaintFields').style.display = (kind === 'fotografia') ? 'none' : '';
+  q("#aUpCategoryWrap").style.display = (kind === "fotografia") ? "" : "none";
+  q("#aUpPaintFields").style.display = (kind === "fotografia") ? "none" : "";
 
-  if (kind === 'fotografia') {
-    q('#aUpCategorySelect').value = category || 'tema_livre';
+  if (kind === "fotografia") {
+    q("#aUpCategorySelect").value = category || "tema_livre";
   } else {
-    q('#aUpTechnique').value = '';
-    q('#aUpDimensions').value = '';
-    q('#aUpType').value = kind; // default to current page
+    q("#aUpTechnique").value = "";
+    q("#aUpDimensions").value = "";
+    q("#aUpType").value = kind;
   }
 
-  setText('aUpStatus', '');
-  show(q('#adminUploadModal'), true);
+  setText("aUpStatus", "");
+  show(q("#adminUploadModal"), true);
 }
 
 async function doUpload() {
-  try {
-    ensureLoggedIn();
-  } catch {
-    await openLogin();
-    return;
-  }
+  try { ensureLoggedIn(); }
+  catch { redirectToCentralLogin(); return; }
 
-  setText('aUpStatus', 'A enviar...');
+  setText("aUpStatus", "A enviar...");
 
-  const kind = q('#aUpKind').value;
-  const col = q('#aUpCol').value;
-  const title = q('#aUpTitle').value;
-  const year = q('#aUpYear').value;
-  const file = q('#aUpFile').files[0];
+  const kind = q("#aUpKind").value;
+  const col = q("#aUpCol").value;
+  const title = q("#aUpTitle").value;
+  const year = q("#aUpYear").value;
+  const file = q("#aUpFile").files[0];
 
-  if (!file) {
-    setText('aUpStatus', 'Escolhe uma imagem.');
-    return;
-  }
+  if (!file) { setText("aUpStatus", "Escolhe uma imagem."); return; }
 
   const fd = new FormData();
-  fd.append('col', col);
-  if (title && title.trim()) fd.append('title', title.trim());
-  if (year) fd.append('year', year);
-  fd.append('file', file);
+  fd.append("col", col);
+  if (title && title.trim()) fd.append("title", title.trim());
+  if (year) fd.append("year", year);
+  fd.append("file", file);
 
   let endpoint;
-  if (kind === 'fotografia') {
-    const cat = q('#aUpCategorySelect').value;
-    fd.append('category', cat);
-    endpoint = '/api/admin/upload/foto';
+  if (kind === "fotografia") {
+    const cat = q("#aUpCategorySelect").value;
+    fd.append("category", cat);
+    endpoint = "/api/admin/upload/foto";
   } else {
-    const type = q('#aUpType').value;
-    fd.append('type', type);
-    fd.append('technique', q('#aUpTechnique').value || (type === 'mista' ? 'Técnica mista' : ''));
-    fd.append('dimensions', q('#aUpDimensions').value || '');
-    endpoint = '/api/admin/upload/pintura';
+    const type = q("#aUpType").value;
+    fd.append("type", type);
+    fd.append("technique", q("#aUpTechnique").value || (type === "mista" ? "Técnica mista" : ""));
+    fd.append("dimensions", q("#aUpDimensions").value || "");
+    endpoint = "/api/admin/upload/pintura";
   }
 
   try {
     const res = await fetch(`${apiBase()}${endpoint}`, {
-      method: 'POST',
+      method: "POST",
       headers: { Authorization: `Bearer ${idToken}` },
       body: fd,
     });
 
-    const ct = res.headers.get('content-type') || '';
-    const data = ct.includes('application/json') ? await res.json() : await res.text();
+    const ct = res.headers.get("content-type") || "";
+    const data = ct.includes("application/json") ? await res.json() : await res.text();
+
     if (!res.ok) {
-      const msg = (data && data.detail) ? data.detail : (typeof data === 'string' ? data : `HTTP ${res.status}`);
-      setText('aUpStatus', `Erro: ${msg}`);
+      const msg = data?.detail ? data.detail : (typeof data === "string" ? data : `HTTP ${res.status}`);
+      setText("aUpStatus", `Erro: ${msg}`);
       return;
     }
 
-    setText('aUpStatus', 'Upload concluído ✅');
-    show(q('#adminUploadModal'), false);
+    setText("aUpStatus", "Upload concluído ✅");
+    show(q("#adminUploadModal"), false);
     await refreshAllBoxes();
   } catch (e) {
-    setText('aUpStatus', `Erro: ${e.message}`);
+    setText("aUpStatus", `Erro: ${e.message}`);
   }
+}
+
+/* ----------------- Login redirect + logout ----------------- */
+function redirectToCentralLogin() {
+  const next = encodeURIComponent(
+    window.location.pathname + window.location.search + window.location.hash
+  );
+  window.location.href = `/admin/?next=${next}`;
+}
+
+async function logout() {
+  idToken = null;
+  STORE.removeItem(SS_TOKEN_KEY);
+  STORE.removeItem(SS_ON_KEY);
+  await turnOffAdmin();
+
+  const u = new URL(location.href);
+  u.searchParams.delete("admin");
+  location.href = u.pathname + (u.search ? u.search : "") + u.hash;
 }
 
 /* ----------------- Boot ----------------- */
 async function init() {
-  // only on pages with galleries
+  // Se a página não tiver galerias, não faz nada
   if (!getBoxes().length) return;
 
-  // Admin mode is ONLY accessible by URL (?admin=1)
-  const url = new URL(window.location.href);
-  const wantAdmin = url.searchParams.get('admin') === '1';
+  const paramsNow = new URL(location.href).searchParams;
+  const wantAdminNow = paramsNow.get("admin") === "1";
 
-  if (!wantAdmin) {
-    // Never show admin UI on normal URLs
-    adminOn = false;
-    sessionStorage.removeItem(SS_ON_KEY);
+  if (!wantAdminNow) {
+    // Se já tens sessão admin, força admin=1 nesta página também
+    if (STORE.getItem(SS_TOKEN_KEY) && STORE.getItem(SS_ON_KEY) === "1") {
+      guardAdminParam();
+    }
     return;
   }
 
   ensureToolbar();
   ensureModals();
 
-  if (adminOn && idToken) {
+  if (!idToken) {
+    redirectToCentralLogin();
+    return;
+  }
+
+  // valida token no backend
+  try {
+    await fetchJson("/api/admin/me", { method: "GET", headers: authHeaders(false) });
+    STORE.setItem(SS_ON_KEY, "1");
+    installAdminCapture();
     await turnOnAdmin();
-  } else {
-    adminOn = false;
-    sessionStorage.removeItem(SS_ON_KEY);
-    await openLogin();
+  } catch (e) {
+    idToken = null;
+    STORE.removeItem(SS_TOKEN_KEY);
+    STORE.removeItem(SS_ON_KEY);
+    redirectToCentralLogin();
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener("DOMContentLoaded", init);
