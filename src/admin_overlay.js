@@ -25,12 +25,6 @@ let dragOriginBoxId = null;
 const urlNow = new URL(window.location.href);
 const isAdminUrl = urlNow.searchParams.get("admin") === "1";
 
-// Se não está em admin URL, nunca liga overlays
-if (!isAdminUrl) {
-  adminOn = false;
-  STORE.removeItem(SS_ON_KEY);
-}
-
 /* ----------------- DOM helpers ----------------- */
 function q(sel, root = document) { return root.querySelector(sel); }
 function qa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
@@ -74,13 +68,15 @@ function rewriteLinksForAdmin() {
 
     const u = new URL(href, location.origin);
 
-    // só páginas html ou pastas do próprio site
     const isHtml = u.pathname.endsWith(".html");
     const isFolder = u.pathname.endsWith("/");
     if (!isHtml && !isFolder) continue;
 
     u.searchParams.set("admin", "1");
-    a.setAttribute("href", u.pathname + "?" + u.searchParams.toString() + u.hash);
+    a.setAttribute(
+      "href",
+      u.pathname + "?" + u.searchParams.toString() + u.hash
+    );
   }
 }
 
@@ -92,15 +88,15 @@ function keepRewritingNavForAWhile() {
   setTimeout(rewriteLinksForAdmin, 900);
 }
 
-/* ----------------- Auto-enter admin if logged -----------------
-   (fallback para quando algum link esquece admin=1) */
+/* ----------------- Auto-repor ?admin=1 se já estiveres em sessão ----------------- */
 function guardAdminParam() {
-  if (isAdminUrl) return;
   const token = STORE.getItem(SS_TOKEN_KEY);
   const on = STORE.getItem(SS_ON_KEY) === "1";
   if (!token || !on) return;
 
   const u = new URL(location.href);
+  if (u.searchParams.get("admin") === "1") return; // já está
+
   u.searchParams.set("admin", "1");
   location.replace(u.pathname + "?" + u.searchParams.toString() + u.hash);
 }
@@ -307,7 +303,9 @@ function startDragAutoScroll() {
   if (__dragScrollRAF) return;
   const step = () => {
     if (!dragEl) { stopDragAutoScroll(); return; }
-    if (__dragScrollY !== 0) window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
+    if (__dragScrollY !== 0) {
+      window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
+    }
     __dragScrollRAF = requestAnimationFrame(step);
   };
   __dragScrollRAF = requestAnimationFrame(step);
@@ -363,7 +361,9 @@ function makeDraggable(el) {
   });
 
   el.addEventListener("drag", (e) => {
-    if (typeof e.clientY === "number" && e.clientY > 0) updateDragAutoScroll(e.clientY);
+    if (typeof e.clientY === "number" && e.clientY > 0) {
+      updateDragAutoScroll(e.clientY);
+    }
   });
 
   el.addEventListener("dragend", () => {
@@ -823,7 +823,9 @@ async function doUpload() {
 
 /* ----------------- Login redirect + logout ----------------- */
 function redirectToCentralLogin() {
-  const next = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash);
+  const next = encodeURIComponent(
+    window.location.pathname + window.location.search + window.location.hash
+  );
   window.location.href = `/admin/?next=${next}`;
 }
 
@@ -840,15 +842,17 @@ async function logout() {
 
 /* ----------------- Boot ----------------- */
 async function init() {
-  // fallback: if logged, keep admin=1 even when link forgets it
-  guardAdminParam();
-
+  // Se a página não tiver galerias, não faz nada
   if (!getBoxes().length) return;
 
-  const wantAdmin = new URL(location.href).searchParams.get("admin") === "1";
-  if (!wantAdmin) {
-    adminOn = false;
-    STORE.removeItem(SS_ON_KEY);
+  const paramsNow = new URL(location.href).searchParams;
+  const wantAdminNow = paramsNow.get("admin") === "1";
+
+  if (!wantAdminNow) {
+    // Se já tens sessão admin, força admin=1 nesta página também
+    if (STORE.getItem(SS_TOKEN_KEY) && STORE.getItem(SS_ON_KEY) === "1") {
+      guardAdminParam();
+    }
     return;
   }
 
@@ -860,13 +864,13 @@ async function init() {
     return;
   }
 
-  // validate token permission
+  // valida token no backend
   try {
     await fetchJson("/api/admin/me", { method: "GET", headers: authHeaders(false) });
     STORE.setItem(SS_ON_KEY, "1");
     installAdminCapture();
     await turnOnAdmin();
-  } catch {
+  } catch (e) {
     idToken = null;
     STORE.removeItem(SS_TOKEN_KEY);
     STORE.removeItem(SS_ON_KEY);
