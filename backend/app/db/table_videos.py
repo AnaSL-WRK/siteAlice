@@ -1,7 +1,7 @@
 # backend/app/db/table_videos.py
 
 import uuid
-from sqlalchemy import Column, String, Integer, DateTime, Text, SmallInteger, func, Float
+from sqlalchemy import Column, String, Integer, Date, Text, SmallInteger, func, Float
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.db_init import Base
 
@@ -19,4 +19,4 @@ class Video(Base):
     thumbnail_path = Column(Text, nullable=False)     # media/videos/thumbnails/uuid.jpg
     thumbnail_time = Column(Float, nullable=True)     # selected second
 
-    published_date = Column(DateTime(timezone=True), nullable=True)  # ✅ --- IGNORE ---
+    published_date = Column(Date, nullable=True) 
