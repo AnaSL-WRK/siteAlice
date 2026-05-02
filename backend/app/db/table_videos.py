@@ -11,7 +11,6 @@ class Video(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     title = Column(Text, nullable=True)
-    year = Column(Integer, nullable=True)
 
     col = Column(SmallInteger, nullable=False, default=1)
     col_order = Column(Integer, nullable=False)
