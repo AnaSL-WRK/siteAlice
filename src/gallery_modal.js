@@ -15,12 +15,29 @@ function linesToOverlayHtml(lines) {
     .join('<br>');
 }
 
+function formatDatePt(value) {
+  if (!value) return '';
+
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return String(value);
+
+  return d.toLocaleDateString('pt-PT');
+}
+
 function buildOverlayText(item, overlayMode) {
   if (!overlayMode || overlayMode === 'none') return '';
 
   if (overlayMode === 'foto') {
     // fotografia: só título
     return item.title ? String(item.title) : '';
+  }
+
+  if (overlayMode === 'video') {
+    // vídeo: título + data de publicação
+    const lines = [];
+    if (item.title) lines.push(item.title);
+    if (item.published_date) lines.push(formatDatePt(item.published_date));
+    return linesToOverlayHtml(lines);
   }
 
   if (overlayMode === 'mista') {
@@ -46,10 +63,30 @@ function createImageNode(item, overlayMode) {
   container.className = 'image-container';
   container.dataset.id = item.id;
 
-  const img = document.createElement('img');
-  img.src = resolveUrl(item.url);
-  img.alt = item.title || '';
-  container.appendChild(img);
+  const isVideo = item.media_type === 'video' || overlayMode === 'video';
+  container.dataset.media = isVideo ? 'video' : 'image';
+
+  if (isVideo) {
+    const video = document.createElement('video');
+    video.src = resolveUrl(item.url);
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.className = 'video-thumb';
+    video.setAttribute('aria-label', item.title || 'Vídeo');
+
+    container.appendChild(video);
+
+    const play = document.createElement('div');
+    play.className = 'video-play-indicator';
+    play.textContent = '▶';
+    container.appendChild(play);
+  } else {
+    const img = document.createElement('img');
+    img.src = resolveUrl(item.url);
+    img.alt = item.title || '';
+    container.appendChild(img);
+  }
 
   const overlayHtml = buildOverlayText(item, overlayMode);
   if (overlayHtml) {
@@ -83,45 +120,88 @@ function ensureUniversalModalDom() {
     <div class="u-modal-content" role="dialog" aria-modal="true">
       <span class="u-close" aria-label="Fechar">&times;</span>
       <img id="modalImage" src="" alt="">
+      <video id="modalVideo" controls playsinline style="display:none;"></video>
       <div class="u-modal-description" id="modalDesc"></div>
     </div>
   `;
+
   document.body.appendChild(modal);
   return modal;
 }
 
-function openModal({ src, descHtml }) {
+function stopModalVideo(modal) {
+  const modalVideo = modal?.querySelector('#modalVideo');
+  if (!modalVideo) return;
+
+  modalVideo.pause();
+  modalVideo.removeAttribute('src');
+  modalVideo.load();
+}
+
+function openImageModal({ src, descHtml }) {
   const modal = ensureUniversalModalDom();
   const modalImg = modal.querySelector('#modalImage');
+  const modalVideo = modal.querySelector('#modalVideo');
   const modalDesc = modal.querySelector('#modalDesc');
   const modalContent = modal.querySelector('.u-modal-content');
 
-  // reset (evita "restos" do item anterior)
+  stopModalVideo(modal);
+
+  modalContent.classList.remove('is-video');
+
+  modalVideo.style.display = 'none';
+  modalImg.style.display = 'block';
+
   modalDesc.innerHTML = descHtml || '';
   modalImg.onload = null;
   modalImg.onerror = null;
 
-  // opcional: remove estilos inline caso existam de versões antigas
+  // reset estilos inline antigos
   modalContent.removeAttribute('style');
   modalImg.removeAttribute('style');
 
-  // abre já
   modal.style.display = 'flex';
 
   // força refresh mesmo que seja o mesmo src
   modalImg.src = '';
   modalImg.src = src;
 
-  // se falhar
   modalImg.onerror = () => {
-    // mantém modal aberto mas informa
-    modalDesc.innerHTML = (modalDesc.innerHTML || '') + '<br><small>Erro a carregar imagem.</small>';
+    modalDesc.innerHTML = `${modalDesc.innerHTML || ''}<br><small>Erro a carregar imagem.</small>`;
   };
+}
+
+function openVideoModal({ src, descHtml }) {
+  const modal = ensureUniversalModalDom();
+  const modalImg = modal.querySelector('#modalImage');
+  const modalVideo = modal.querySelector('#modalVideo');
+  const modalDesc = modal.querySelector('#modalDesc');
+  const modalContent = modal.querySelector('.u-modal-content');
+
+  modalImg.style.display = 'none';
+  modalImg.removeAttribute('src');
+
+  modalVideo.style.display = 'block';
+  modalVideo.src = src;
+
+  modalDesc.innerHTML = descHtml || '';
+
+  modalContent.removeAttribute('style');
+  modalContent.classList.add('is-video');
+  modalContent.style.height = '90%';
+
+  modal.style.display = 'flex';
+
+  modalVideo.play().catch(() => {
+    // se o browser bloquear autoplay, o utilizador pode carregar no play
+  });
 }
 
 function closeModal() {
   const modal = document.getElementById('universalModal');
   if (!modal) return;
+
+  stopModalVideo(modal);
   modal.style.display = 'none';
 }
 
@@ -153,14 +233,27 @@ function installUniversalModal() {
     // se for tile do admin, não abre modal público
     if (container.classList.contains('add-tile')) return;
 
+    const overlayP = container.querySelector('.overlay p');
+    const descHtml = overlayP ? overlayP.innerHTML : '';
+
+    if (container.dataset.media === 'video') {
+      const video = container.querySelector('video');
+      if (!video) return;
+
+      openVideoModal({
+        src: video.src,
+        descHtml,
+      });
+
+      return;
+    }
+
     const img = container.querySelector('img');
     if (!img) return;
 
-    const overlayP = container.querySelector('.overlay p');
-
-    openModal({
+    openImageModal({
       src: img.src,
-      descHtml: overlayP ? overlayP.innerHTML : '',
+      descHtml,
     });
   });
 }
@@ -191,9 +284,11 @@ export async function renderBox({
   // se não havia estático: cria estrutura e loading
   if (!hadStatic) {
     box.innerHTML = '';
+
     const col1 = createDreamColumn();
     const col2 = createDreamColumn();
     const col3 = createDreamColumn();
+
     box.appendChild(col1);
     box.appendChild(col2);
     box.appendChild(col3);
@@ -202,6 +297,7 @@ export async function renderBox({
     loading.style.padding = '20px';
     loading.style.color = 'navy';
     loading.textContent = 'A carregar...';
+
     box.appendChild(loading);
   }
 
@@ -210,19 +306,23 @@ export async function renderBox({
     const t = setTimeout(() => ctrl.abort(), timeoutMs);
 
     const items = await fetchJson(endpoint, { signal: ctrl.signal });
+
     clearTimeout(t);
 
     // substituir pelo dinâmico
     box.innerHTML = '';
+
     const col1 = createDreamColumn();
     const col2 = createDreamColumn();
     const col3 = createDreamColumn();
+
     box.appendChild(col1);
     box.appendChild(col2);
     box.appendChild(col3);
 
     for (const it of items) {
       const node = createImageNode(it, overlayMode);
+
       if (it.col === 1) col1.appendChild(node);
       else if (it.col === 2) col2.appendChild(node);
       else col3.appendChild(node);
@@ -233,6 +333,7 @@ export async function renderBox({
       box.innerHTML = staticHTML;
       return;
     }
+
     if (loading) loading.textContent = 'Offline (a mostrar versão simples).';
   }
 }

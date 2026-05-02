@@ -2,6 +2,7 @@ import os
 import uuid
 from uuid import UUID
 from typing import Optional
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
 from sqlalchemy.orm import Session
@@ -12,41 +13,75 @@ from app.config import settings
 from app.auth import require_admin
 from app.db.table_fotos import Fotografia
 from app.db.table_pinturas import Pintura
+from app.db.table_videos import Video
 
 from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+
 @router.get("/me")
 def admin_me(user: dict = Depends(require_admin)):
     return user
 
 
-ALLOWED_MIME = {
+ALLOWED_IMAGE_MIME = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
 }
 
+ALLOWED_VIDEO_MIME = {
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/quicktime": ".mov",
+    "video/x-m4v": ".m4v",
+    "video/m4v": ".m4v",
+}
+
+
 def ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
+
 
 def sanitize_category(cat: Optional[str]) -> Optional[str]:
     if cat is None:
         return None
+
     cat = cat.strip()
     return cat if cat else None
 
-def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str) -> str:
+
+def was_provided(payload: BaseModel, field_name: str) -> bool:
+    """
+    Works with Pydantic v2 and v1.
+    Allows PATCH fields to be explicitly cleared with null.
+    """
+    if hasattr(payload, "model_fields_set"):
+        return field_name in payload.model_fields_set
+
+    return field_name in getattr(payload, "__fields_set__", set())
+
+
+def save_upload_to_disk(
+    file: UploadFile,
+    rel_dir: str,
+    media_root: str,
+    allowed_mime: dict[str, str] = ALLOWED_IMAGE_MIME,
+) -> str:
     """
     Guarda em: <media_root>/<rel_dir>/<uuid>.<ext>
     Retorna file_path para BD: "media/<rel_dir>/<uuid>.<ext>"
     """
-    if file.content_type not in ALLOWED_MIME:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
+    if file.content_type not in allowed_mime:
+        allowed = ", ".join(sorted(allowed_mime.keys()))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {allowed}",
+        )
 
-    ext = ALLOWED_MIME[file.content_type]
+    ext = allowed_mime[file.content_type]
     file_id = uuid.uuid4()
 
     abs_dir = os.path.join(media_root, rel_dir)
@@ -58,8 +93,29 @@ def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str) -> str:
     with open(abs_path, "wb") as out:
         out.write(file.file.read())
 
-    # isto é o que vai para a BD e que o nginx vai servir
     return f"media/{rel_dir}/{filename}".replace("\\", "/")
+
+
+def delete_file_if_exists(file_path: str) -> None:
+    file_path = (file_path or "").replace("\\", "/")
+    if not file_path:
+        return
+
+    abs_path = file_path
+
+    if not os.path.isabs(abs_path):
+        abs_path = os.path.join(os.getcwd(), abs_path)
+
+    try:
+        if os.path.exists(abs_path):
+            os.remove(abs_path)
+    except OSError:
+        pass
+
+
+# ------------------------------------------------------------
+# Uploads
+# ------------------------------------------------------------
 
 @router.post("/upload/foto")
 def upload_foto(
@@ -75,9 +131,9 @@ def upload_foto(
 ):
     """
     Upload para tabela fotografia:
-    - category: estruturas/praia/natureza/tema_livre (ou None)
+    - category: estruturas/praia/natureza/tema_livre ou None
     - col: 1..3
-    - col_order: max+1 dentro (category, col)
+    - col_order: max+1 dentro de category + col
     """
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
@@ -85,6 +141,7 @@ def upload_foto(
     category = sanitize_category(category)
 
     q = db.query(func.max(Fotografia.col_order)).filter(Fotografia.col == col)
+
     if category is None:
         q = q.filter(Fotografia.category.is_(None))
         rel_dir = "fotografia/_"
@@ -95,7 +152,12 @@ def upload_foto(
     max_order = q.scalar() or 0
     next_order = int(max_order) + 1
 
-    file_path = save_upload_to_disk(file, rel_dir, settings.media_root)
+    file_path = save_upload_to_disk(
+        file=file,
+        rel_dir=rel_dir,
+        media_root=settings.media_root,
+        allowed_mime=ALLOWED_IMAGE_MIME,
+    )
 
     foto = Fotografia(
         category=category,
@@ -105,6 +167,7 @@ def upload_foto(
         col_order=next_order,
         file_path=file_path,
     )
+
     db.add(foto)
     db.commit()
     db.refresh(foto)
@@ -118,6 +181,7 @@ def upload_foto(
         "col_order": int(foto.col_order),
         "url": "/" + foto.file_path,
     }
+
 
 @router.post("/upload/pintura")
 def upload_pintura(
@@ -134,32 +198,46 @@ def upload_pintura(
     file: UploadFile = File(...),
 ):
     """
-    Upload para tabela Pinturas:
+    Upload para tabela pinturas:
     - type: pinturas/mista
-    - col_order: max+1 dentro (type, col)
+    - col_order: max+1 dentro de type + col
     """
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
+
     type = type.strip().lower()
 
     if type not in ("pinturas", "mista"):
-        raise HTTPException(status_code=400, detail='type must be "pinturas" or "mista"')
+        raise HTTPException(
+            status_code=400,
+            detail='type must be "pinturas" or "mista"',
+        )
 
     technique = technique.strip()
     dimensions = dimensions.strip()
+
     if not technique or not dimensions:
-        raise HTTPException(status_code=400, detail="technique and dimensions are required")
+        raise HTTPException(
+            status_code=400,
+            detail="technique and dimensions are required",
+        )
 
     q = (
         db.query(func.max(Pintura.col_order))
         .filter(Pintura.type == type, Pintura.col == col)
     )
+
     max_order = q.scalar() or 0
     next_order = int(max_order) + 1
 
-    # guardar em media/pinturas/ ou media/pinturas/mista/
     rel_dir = "pinturas" if type == "pinturas" else "pinturas/mista"
-    file_path = save_upload_to_disk(file, rel_dir, settings.media_root)
+
+    file_path = save_upload_to_disk(
+        file=file,
+        rel_dir=rel_dir,
+        media_root=settings.media_root,
+        allowed_mime=ALLOWED_IMAGE_MIME,
+    )
 
     p = Pintura(
         type=type,
@@ -171,6 +249,7 @@ def upload_pintura(
         col_order=next_order,
         file_path=file_path,
     )
+
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -187,6 +266,66 @@ def upload_pintura(
         "url": "/" + p.file_path,
     }
 
+
+@router.post("/upload/video")
+def upload_video(
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+
+    title: Optional[str] = Form(None),
+    published_date: Optional[date] = Form(None),
+    col: int = Form(1),
+
+    file: UploadFile = File(...),
+):
+    """
+    Upload para tabela videos:
+    - ficheiro: mp4/webm/mov/m4v
+    - published_date: data de publicação opcional
+    - col_order: max+1 dentro da coluna
+    """
+    if col not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="col must be 1,2,3")
+
+    q = db.query(func.max(Video.col_order)).filter(Video.col == col)
+
+    max_order = q.scalar() or 0
+    next_order = int(max_order) + 1
+
+    file_path = save_upload_to_disk(
+        file=file,
+        rel_dir="videos",
+        media_root=settings.media_root,
+        allowed_mime=ALLOWED_VIDEO_MIME,
+    )
+
+    v = Video(
+        title=title.strip() if title else None,
+        published_date=published_date,
+        col=col,
+        col_order=next_order,
+        file_path=file_path,
+    )
+
+    db.add(v)
+    db.commit()
+    db.refresh(v)
+
+    return {
+        "id": str(v.id),
+        "title": v.title,
+        "published_date": v.published_date.isoformat() if v.published_date else None,
+        "col": int(v.col),
+        "col_order": int(v.col_order),
+        "url": "/" + v.file_path,
+        "media_type": "video",
+    }
+
+
+# ------------------------------------------------------------
+# Reorder
+# ------------------------------------------------------------
+
 @router.post("/reorder/fotos")
 def reorder_fotos(
     payload: dict,
@@ -197,12 +336,12 @@ def reorder_fotos(
     payload:
     {
       "items": [
-        {"id":"...", "col":1, "col_order":1, "category":"praia"},
-        ...
+        {"id":"...", "col":1, "col_order":1, "category":"praia"}
       ]
     }
     """
     items = payload.get("items")
+
     if not isinstance(items, list):
         raise HTTPException(status_code=400, detail="items must be a list")
 
@@ -231,6 +370,7 @@ def reorder_fotos(
     db.commit()
     return {"ok": True}
 
+
 @router.post("/reorder/pinturas")
 def reorder_pinturas(
     payload: dict,
@@ -241,12 +381,12 @@ def reorder_pinturas(
     payload:
     {
       "items": [
-        {"id":"...", "col":2, "col_order":5, "type":"pinturas"},
-        ...
+        {"id":"...", "col":2, "col_order":5, "type":"pinturas"}
       ]
     }
     """
     items = payload.get("items")
+
     if not isinstance(items, list):
         raise HTTPException(status_code=400, detail="items must be a list")
 
@@ -258,8 +398,12 @@ def reorder_pinturas(
 
         if not art_id or col not in (1, 2, 3) or not isinstance(col_order, int):
             raise HTTPException(status_code=400, detail="bad item")
+
         if type_ not in ("pinturas", "mista"):
-            raise HTTPException(status_code=400, detail='type must be "pinturas" or "mista"')
+            raise HTTPException(
+                status_code=400,
+                detail='type must be "pinturas" or "mista"',
+            )
 
         try:
             art_uuid = UUID(str(art_id))
@@ -278,10 +422,58 @@ def reorder_pinturas(
     return {"ok": True}
 
 
+@router.post("/reorder/videos")
+def reorder_videos(
+    payload: dict,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    payload:
+    {
+      "items": [
+        {"id":"...", "col":1, "col_order":1}
+      ]
+    }
+    """
+    items = payload.get("items")
+
+    if not isinstance(items, list):
+        raise HTTPException(status_code=400, detail="items must be a list")
+
+    for it in items:
+        video_id = it.get("id")
+        col = it.get("col")
+        col_order = it.get("col_order")
+
+        if not video_id or col not in (1, 2, 3) or not isinstance(col_order, int):
+            raise HTTPException(status_code=400, detail="bad item")
+
+        try:
+            video_uuid = UUID(str(video_id))
+        except Exception:
+            continue
+
+        v = db.query(Video).filter(Video.id == video_uuid).first()
+        if not v:
+            continue
+
+        v.col = col
+        v.col_order = col_order
+
+    db.commit()
+    return {"ok": True}
+
+
+# ------------------------------------------------------------
+# Updates
+# ------------------------------------------------------------
+
 class FotoUpdate(BaseModel):
     title: Optional[str] = None
     year: Optional[int] = None
     category: Optional[str] = None
+
 
 @router.patch("/fotos/{foto_id}")
 def update_foto(
@@ -291,14 +483,17 @@ def update_foto(
     db: Session = Depends(get_db),
 ):
     foto = db.query(Fotografia).filter(Fotografia.id == foto_id).first()
+
     if not foto:
         raise HTTPException(status_code=404, detail="Foto not found")
 
-    if payload.title is not None:
-        foto.title = payload.title.strip() or None
-    if payload.year is not None:
+    if was_provided(payload, "title"):
+        foto.title = payload.title.strip() if payload.title else None
+
+    if was_provided(payload, "year"):
         foto.year = payload.year
-    if payload.category is not None:
+
+    if was_provided(payload, "category"):
         foto.category = sanitize_category(payload.category)
 
     db.commit()
@@ -312,6 +507,7 @@ class PinturaUpdate(BaseModel):
     dimensions: Optional[str] = None
     type: Optional[str] = None  # "pinturas" | "mista"
 
+
 @router.patch("/pinturas/{pintura_id}")
 def update_pintura(
     pintura_id: UUID,
@@ -320,24 +516,67 @@ def update_pintura(
     db: Session = Depends(get_db),
 ):
     p = db.query(Pintura).filter(Pintura.id == pintura_id).first()
+
     if not p:
         raise HTTPException(status_code=404, detail="Pintura not found")
 
-    if payload.title is not None:
-        p.title = payload.title.strip() or None
-    if payload.year is not None:
+    if was_provided(payload, "title"):
+        p.title = payload.title.strip() if payload.title else None
+
+    if was_provided(payload, "year"):
         p.year = payload.year
-    if payload.technique is not None:
-        p.technique = payload.technique.strip() or None
-    if payload.dimensions is not None:
-        p.dimensions = payload.dimensions.strip() or None
-    if payload.type is not None:
-        p.type = (payload.type or "").strip().lower() or None
+
+    if was_provided(payload, "technique"):
+        p.technique = payload.technique.strip() if payload.technique else ""
+
+    if was_provided(payload, "dimensions"):
+        p.dimensions = payload.dimensions.strip() if payload.dimensions else ""
+
+    if was_provided(payload, "type"):
+        type_ = (payload.type or "").strip().lower()
+
+        if type_ and type_ not in ("pinturas", "mista"):
+            raise HTTPException(
+                status_code=400,
+                detail='type must be "pinturas" or "mista"',
+            )
+
+        p.type = type_ or None
 
     db.commit()
     return {"ok": True}
 
 
+class VideoUpdate(BaseModel):
+    title: Optional[str] = None
+    published_date: Optional[date] = None
+
+
+@router.patch("/videos/{video_id}")
+def update_video(
+    video_id: UUID,
+    payload: VideoUpdate,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    v = db.query(Video).filter(Video.id == video_id).first()
+
+    if not v:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    if was_provided(payload, "title"):
+        v.title = payload.title.strip() if payload.title else None
+
+    if was_provided(payload, "published_date"):
+        v.published_date = payload.published_date
+
+    db.commit()
+    return {"ok": True}
+
+
+# ------------------------------------------------------------
+# Deletes
+# ------------------------------------------------------------
 
 @router.delete("/fotos/{foto_id}")
 def delete_foto(
@@ -346,31 +585,21 @@ def delete_foto(
     db: Session = Depends(get_db),
 ):
     foto = db.query(Fotografia).filter(Fotografia.id == foto_id).first()
+
     if not foto:
         raise HTTPException(status_code=404, detail="Foto not found")
 
-    # guardar path antes de apagar da BD
-    file_path = (foto.file_path or "").replace("\\", "/")
+    file_path = foto.file_path
 
-    # apagar registo
     db.delete(foto)
     db.commit()
 
-    # apagar ficheiro do disco (se existir)
-    # file_path  "media/fotografia/praia/uuid.jpg"
-    abs_path = file_path
-    if not os.path.isabs(abs_path):
-        # garante que resolve a partir da raiz do backend
-        abs_path = os.path.join(os.getcwd(), abs_path)
+    delete_file_if_exists(file_path)
 
-    try:
-        if os.path.exists(abs_path):
-            os.remove(abs_path)
-    except OSError:
-        # não falhar o request se o ficheiro não der para apagar
-        pass
-
-    return {"ok": True, "deleted_id": str(foto_id)}
+    return {
+        "ok": True,
+        "deleted_id": str(foto_id),
+    }
 
 
 @router.delete("/pinturas/{pintura_id}")
@@ -380,24 +609,42 @@ def delete_pintura(
     db: Session = Depends(get_db),
 ):
     p = db.query(Pintura).filter(Pintura.id == pintura_id).first()
+
     if not p:
         raise HTTPException(status_code=404, detail="Pintura not found")
 
-    file_path = (p.file_path or "").replace("\\", "/")
+    file_path = p.file_path
 
     db.delete(p)
     db.commit()
 
-    abs_path = file_path
-    if not os.path.isabs(abs_path):
-        abs_path = os.path.join(os.getcwd(), abs_path)
+    delete_file_if_exists(file_path)
 
-    try:
-        if os.path.exists(abs_path):
-            os.remove(abs_path)
-    except OSError:
-        pass
-
-    return {"ok": True, "deleted_id": str(pintura_id)}
+    return {
+        "ok": True,
+        "deleted_id": str(pintura_id),
+    }
 
 
+@router.delete("/videos/{video_id}")
+def delete_video(
+    video_id: UUID,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    v = db.query(Video).filter(Video.id == video_id).first()
+
+    if not v:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    file_path = v.file_path
+
+    db.delete(v)
+    db.commit()
+
+    delete_file_if_exists(file_path)
+
+    return {
+        "ok": True,
+        "deleted_id": str(video_id),
+    }

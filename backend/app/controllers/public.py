@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.db_init import get_db
 from app.db.table_fotos import Fotografia
 from app.db.table_pinturas import Pintura
+from app.db.table_videos import Video
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -55,4 +56,27 @@ def list_pinturas(
             "url": "/" + a.file_path.replace("\\", "/"),
         }
         for a in items
+    ]
+
+@router.get("/videos")
+def list_videos(
+    db: Session = Depends(get_db),
+):
+    items = (
+        db.query(Video)
+        .order_by(Video.col.asc(), Video.col_order.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": str(v.id),
+            "title": v.title,
+            "published_date": v.published_date.isoformat() if v.published_date else None,
+            "col": int(v.col),
+            "col_order": int(v.col_order),
+            "url": "/" + v.file_path.replace("\\", "/"),
+            "media_type": "video",
+        }
+        for v in items
     ]

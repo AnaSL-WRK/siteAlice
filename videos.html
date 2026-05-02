@@ -2,80 +2,72 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Alice nas Artes</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6LrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+        <link rel="stylesheet" href="src/styles/galery.css">
         <link rel="stylesheet" href="src/styles/admin_overlay.css">
-        <link rel="stylesheet" href="src/styles/style.css">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
         <script src="https://kit.fontawesome.com/9a41dd9809.js" crossorigin="anonymous"></script>
         <script src="https://accounts.google.com/gsi/client" async defer></script>
     </head>
 
 <body>
-    
     <div class="header">
         <div class="container">
             <div class="logo" href="index.html">
-                <a href="index.html"><h1 style="font-size: 70px;" >Alice nas Artes</h1></a> 
+                <a href="index.html"><h1 style="font-size: 70px;">Alice nas Artes</h1></a> 
             </div> 
         </div>
+
         <div class="line"></div>
-        <div class="navbar navbar-expand-lg"  role="navigation">
+
+        <div class="navbar navbar-expand-lg" role="navigation">
             <div class="navbar-nav">
                 <ul>
                     <li><a href="pinturas.html">Pinturas</a></li>
             
                     <li>
                         <a href="fotografia.html">Fotografia<i class="fa-solid fa-chevron-down" style="padding-left: 10px;"></i></a>
-                            <ul class="submenu">
-                                <li><a href="fotografia.html#estruturas">Estruturas</a></li>
-                                <li><a href="fotografia.html#praia">Praia</a></li>
-                                <li><a href="fotografia.html#natureza">Natureza</a></li>
-                                <li><a href="fotografia.html#tema_livre">Tema Livre</a></li>
-                            </ul>
+                        <ul class="submenu">
+                            <li><a href="fotografia.html#estruturas">Estruturas</a></li>
+                            <li><a href="fotografia.html#praia">Praia</a></li>
+                            <li><a href="fotografia.html#natureza">Natureza</a></li>
+                            <li><a href="fotografia.html#tema_livre">Tema Livre</a></li>
+                        </ul>
                     </li>    
 
                     <li><a href="mista.html">Técnica Mista</a></li>
                     <li><a href="videos.html">Poesia</a></li>
                     <li><a href="biografia.html">Biografia</a></li>
-                    <li><a href="src/alicenasartes.pdf" >Portfolio</a></li>
+                    <li><a href="src/alicenasartes.pdf">Portfolio</a></li>
                 </ul>
             </div>
         </div>
     </div>
-    
 
     <div class="container">
-        <h1 style=" margin: 0 0 30px 0 ;font-size: 40px">Pintura do dia</h1>
+        <div class="heading"><h1>Vídeos</h1></div>
 
-        <div class="painting-container">
-            <img id="randomPainting" src="" alt="Random Painting" class="painting-image" />
-            
-            
-            <div class="painting-details">
-                <p id="paintingDescription" class="painting-description"></p>
-                <p id="paintingYear" class="painting-year"></p>
-                <p id="paintingDimensions" class="painting-dimensions"></p>
-            </div>
-
-
+        <div class="box" id="box-videos"
+            data-endpoint="/api/videos"
+            data-kind="videos"
+            data-overlay="video">
         </div>
     </div>
+   
+    <script type="module">
+        import { renderBox } from "./src/gallery_modal.js";
 
-
-    <div class="container">
-        <h1 style=" margin: 100px 0 25px 0 ;font-size: 40px">Fotografia do dia</h1>
-
-        <div class="foto-container" style="padding-bottom: 50px;">
-            <img id="randomFoto" src="" alt="Random Photo" class="painting-image" />
-
-        </div>
-    </div>
-
-
-
+        document.querySelectorAll(".box[data-endpoint]").forEach((b) => {
+            renderBox({
+                boxId: b.id,
+                endpoint: b.dataset.endpoint,
+                overlayMode: b.dataset.overlay || "none"
+            });
+        });
+    </script>
 
     <div class="line"></div>
+
     <div class="footer-basic">
         <footer style="text-align: center;">
             <p>Para informações sobre os quadros, contactar através do email ou do instagram.</p>
@@ -83,16 +75,12 @@
             <div class="social">
                 <a href="mailto:alicenasartes@gmail.com"><i class="fa-regular fa-envelope"></i></a>
                 <a href="https://www.instagram.com/alicedefatimaloureiro/"><i class="fa-brands fa-instagram"></i></a>
-                
             </div>
         </footer>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-    <script type="module" src="src/script.js"></script>
     <script type="module" src="./src/admin_overlay.js"></script>
-
-
 </body>
 </html>

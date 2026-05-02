@@ -3,7 +3,7 @@
 // - Central login at /admin (stores token in localStorage)
 // - Pages enter admin mode ONLY if ?admin=1
 // - Drag to reorder, Save/Cancel toolbar
-// - Click image to edit metadata
+// - Click image/video to edit metadata
 // - "Add new" tile opens upload modal
 // - Keep admin=1 across navbar links
 // - Auto-scroll while dragging
@@ -26,26 +26,38 @@ const urlNow = new URL(window.location.href);
 const isAdminUrl = urlNow.searchParams.get("admin") === "1";
 
 /* ----------------- DOM helpers ----------------- */
-function q(sel, root = document) { return root.querySelector(sel); }
-function qa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
-function getBoxes() { return qa(".box[data-endpoint][data-kind]"); }
+function q(sel, root = document) {
+  return root.querySelector(sel);
+}
+
+function qa(sel, root = document) {
+  return [...root.querySelectorAll(sel)];
+}
+
+function getBoxes() {
+  return qa(".box[data-endpoint][data-kind]");
+}
 
 function show(el, on) {
   if (!el) return;
   el.style.display = on ? "flex" : "none";
 }
+
 function setText(id, txt) {
   const el = document.getElementById(id);
   if (el) el.textContent = txt || "";
 }
+
 function authHeaders(json = true) {
   const h = { Authorization: `Bearer ${idToken}` };
   if (json) h["Content-Type"] = "application/json";
   return h;
 }
+
 function ensureLoggedIn() {
   if (!idToken) throw new Error("Sessão expirada. Faz login novamente.");
 }
+
 function setDirty(on) {
   dirty = !!on;
   const saveBtn = q("#adminBtnSave");
@@ -81,7 +93,6 @@ function rewriteLinksForAdmin() {
 }
 
 function keepRewritingNavForAWhile() {
-  // apanha navbars renderizados/trocados por bootstrap/JS
   rewriteLinksForAdmin();
   setTimeout(rewriteLinksForAdmin, 150);
   setTimeout(rewriteLinksForAdmin, 450);
@@ -95,7 +106,7 @@ function guardAdminParam() {
   if (!token || !on) return;
 
   const u = new URL(location.href);
-  if (u.searchParams.get("admin") === "1") return; // já está
+  if (u.searchParams.get("admin") === "1") return;
 
   u.searchParams.set("admin", "1");
   location.replace(u.pathname + "?" + u.searchParams.toString() + u.hash);
@@ -139,6 +150,7 @@ function ensureModals() {
         <h3>Editar</h3>
 
         <img id="aEditPreview" class="a-preview" alt="" />
+        <video id="aEditVideoPreview" class="a-preview" controls playsinline style="display:none;"></video>
 
         <input type="hidden" id="aEditId" />
         <input type="hidden" id="aEditKind" />
@@ -148,10 +160,11 @@ function ensureModals() {
         <input id="aEditTitle" />
 
         <div class="row">
-          <div>
+          <div id="aEditYearWrap">
             <label>Ano</label>
             <input id="aEditYear" type="number" />
           </div>
+
           <div id="aEditCategoryWrap" style="display:none;">
             <label>Categoria (fotografia)</label>
             <select id="aEditCategory">
@@ -161,6 +174,11 @@ function ensureModals() {
               <option value="tema_livre">Tema Livre</option>
             </select>
           </div>
+        </div>
+
+        <div id="aEditVideoFields" style="display:none;">
+          <label>Data de publicação</label>
+          <input id="aEditPublishedDate" type="date" />
         </div>
 
         <div id="aEditPaintFields" style="display:none;">
@@ -174,6 +192,7 @@ function ensureModals() {
               <input id="aEditDimensions" />
             </div>
           </div>
+
           <div class="row">
             <div>
               <label>Tipo</label>
@@ -191,6 +210,7 @@ function ensureModals() {
           <button class="danger" id="aBtnDeleteEdit" type="button">Apagar</button>
           <button class="secondary" type="button" data-close="adminEditModal">Cancelar</button>
         </div>
+
         <div class="status" id="aEditStatus"></div>
       </div>
     `;
@@ -208,7 +228,7 @@ function ensureModals() {
     el.innerHTML = `
       <div class="a-content">
         <span class="a-close" data-close="adminUploadModal">&times;</span>
-        <h3>Adicionar nova imagem</h3>
+        <h3 id="aUpModalTitle">Adicionar novo item</h3>
 
         <input type="hidden" id="aUpKind" />
         <input type="hidden" id="aUpCategory" />
@@ -222,7 +242,8 @@ function ensureModals() {
               <option value="3">Coluna 3</option>
             </select>
           </div>
-          <div>
+
+          <div id="aUpYearWrap">
             <label>Ano</label>
             <input id="aUpYear" type="number" />
           </div>
@@ -230,6 +251,11 @@ function ensureModals() {
 
         <label>Título</label>
         <input id="aUpTitle" />
+
+        <div id="aUpPublishedDateWrap" style="display:none;">
+          <label>Data de publicação</label>
+          <input id="aUpPublishedDate" type="date" />
+        </div>
 
         <div id="aUpCategoryWrap" style="display:none;">
           <label>Categoria (fotografia)</label>
@@ -252,6 +278,7 @@ function ensureModals() {
               <input id="aUpDimensions" placeholder="ex: 70 x 50 cm" />
             </div>
           </div>
+
           <label>Tipo</label>
           <select id="aUpType">
             <option value="pinturas">Pinturas</option>
@@ -259,13 +286,14 @@ function ensureModals() {
           </select>
         </div>
 
-        <label>Imagem</label>
+        <label id="aUpFileLabel">Ficheiro</label>
         <input id="aUpFile" type="file" accept="image/*" />
 
         <div class="actions">
           <button class="primary" id="aBtnDoUpload" type="button">Fazer upload</button>
           <button class="secondary" type="button" data-close="adminUploadModal">Cancelar</button>
         </div>
+
         <div class="status" id="aUpStatus"></div>
       </div>
     `;
@@ -278,21 +306,40 @@ function ensureModals() {
   document.addEventListener("click", (e) => {
     const close = e.target.closest("[data-close]");
     if (!close) return;
+
     const id = close.getAttribute("data-close");
     const m = document.getElementById(id);
-    if (m) show(m, false);
+
+    if (m) {
+      stopEditPreviewVideo();
+      show(m, false);
+    }
   });
 
   for (const m of qa(".a-modal")) {
     m.addEventListener("click", (e) => {
-      if (e.target === m) show(m, false);
+      if (e.target === m) {
+        stopEditPreviewVideo();
+        show(m, false);
+      }
     });
   }
 
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+
+    stopEditPreviewVideo();
     for (const m of qa(".a-modal")) show(m, false);
   });
+}
+
+function stopEditPreviewVideo() {
+  const v = q("#aEditVideoPreview");
+  if (!v) return;
+
+  v.pause();
+  v.removeAttribute("src");
+  v.load();
 }
 
 /* ----------------- Auto-scroll while dragging ----------------- */
@@ -301,13 +348,20 @@ let __dragScrollY = 0;
 
 function startDragAutoScroll() {
   if (__dragScrollRAF) return;
+
   const step = () => {
-    if (!dragEl) { stopDragAutoScroll(); return; }
+    if (!dragEl) {
+      stopDragAutoScroll();
+      return;
+    }
+
     if (__dragScrollY !== 0) {
       window.scrollBy({ top: __dragScrollY, left: 0, behavior: "auto" });
     }
+
     __dragScrollRAF = requestAnimationFrame(step);
   };
+
   __dragScrollRAF = requestAnimationFrame(step);
 }
 
@@ -340,9 +394,14 @@ async function refreshCacheAll() {
   const tasks = getBoxes().map(async (box) => {
     const items = await fetchJson(box.dataset.endpoint);
     const map = new Map();
-    for (const it of items) map.set(String(it.id), it);
+
+    for (const it of items) {
+      map.set(String(it.id), it);
+    }
+
     boxCache.set(box.id, map);
   });
+
   await Promise.all(tasks);
 }
 
@@ -370,19 +429,30 @@ function makeDraggable(el) {
     el.classList.remove("dragging");
     dragEl = null;
     dragOriginBoxId = null;
+
     stopDragAutoScroll();
     setDirty(true);
   });
 }
 
 function getDragAfterElement(container, y) {
-  const els = [...container.querySelectorAll(".image-container:not(.dragging):not(.add-tile)")];
-  return els.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    const offset = y - box.top - box.height / 2;
-    if (offset < 0 && offset > closest.offset) return { offset, element: child };
-    return closest;
-  }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+  const els = [
+    ...container.querySelectorAll(".image-container:not(.dragging):not(.add-tile)"),
+  ];
+
+  return els.reduce(
+    (closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+
+      return closest;
+    },
+    { offset: Number.NEGATIVE_INFINITY, element: null }
+  ).element;
 }
 
 function ensureAddTile(box) {
@@ -392,10 +462,18 @@ function ensureAddTile(box) {
 
   const tile = document.createElement("div");
   tile.className = "image-container add-tile";
-  const label = box.dataset.kind === "fotografia"
-    ? "➕ Adicionar nova fotografia"
-    : "➕ Adicionar nova obra";
+
+  let label;
+  if (box.dataset.kind === "fotografia") {
+    label = "➕ Adicionar nova fotografia";
+  } else if (box.dataset.kind === "videos") {
+    label = "➕ Adicionar novo vídeo";
+  } else {
+    label = "➕ Adicionar nova obra";
+  }
+
   tile.innerHTML = `${label}<br><small>(upload)</small>`;
+
   tile.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -409,9 +487,11 @@ function ensureEditBadges(box) {
   for (const node of box.querySelectorAll(".image-container")) {
     if (node.classList.contains("add-tile")) continue;
     if (node.querySelector(".admin-badge")) continue;
+
     const badge = document.createElement("div");
     badge.className = "admin-badge";
     badge.textContent = "✎";
+
     node.appendChild(badge);
   }
 }
@@ -430,6 +510,7 @@ function setupDropZones(box) {
 
       const after = getDragAfterElement(colEl, e.clientY);
       const addTile = colEl.querySelector(".add-tile");
+
       if (addTile && dragEl === addTile) return;
 
       if (after == null) colEl.appendChild(dragEl);
@@ -446,6 +527,7 @@ function enhanceBox(box) {
   for (const el of box.querySelectorAll(".image-container")) {
     if (el.classList.contains("add-tile")) continue;
     if (el.dataset.adminDraggable === "1") continue;
+
     el.dataset.adminDraggable = "1";
     makeDraggable(el);
 
@@ -453,6 +535,12 @@ function enhanceBox(box) {
     if (img) {
       img.draggable = false;
       img.addEventListener("dragstart", (ev) => ev.preventDefault());
+    }
+
+    const video = el.querySelector("video");
+    if (video) {
+      video.draggable = false;
+      video.addEventListener("dragstart", (ev) => ev.preventDefault());
     }
   }
 }
@@ -462,11 +550,14 @@ function enhanceBoxWithRetry(box, tries = 0) {
     if (tries < 25) setTimeout(() => enhanceBoxWithRetry(box, tries + 1), 80);
     return;
   }
+
   enhanceBox(box);
 }
 
 function enhanceAllBoxes() {
-  for (const box of getBoxes()) enhanceBoxWithRetry(box);
+  for (const box of getBoxes()) {
+    enhanceBoxWithRetry(box);
+  }
 }
 
 /* ----------------- Admin click interception (edit) ----------------- */
@@ -484,17 +575,20 @@ const adminCaptureClickHandler = (e) => {
 
   const box = container.closest(".box");
   const id = container.dataset.id;
+
   if (box && id) openEditModal(box.id, id);
 };
 
 function installAdminCapture() {
   if (__adminCaptureInstalled) return;
+
   document.addEventListener("click", adminCaptureClickHandler, true);
   __adminCaptureInstalled = true;
 }
 
 function uninstallAdminCapture() {
   if (!__adminCaptureInstalled) return;
+
   document.removeEventListener("click", adminCaptureClickHandler, true);
   __adminCaptureInstalled = false;
 }
@@ -520,6 +614,7 @@ async function turnOffAdmin() {
   adminOn = false;
   uninstallAdminCapture();
   setDirty(false);
+
   document.body.classList.remove("admin-on");
   show(q("#adminToolbar"), false);
 
@@ -536,23 +631,37 @@ async function turnOffAdmin() {
 function getOrderStateForBox(box) {
   const cols = [...box.querySelectorAll(".dream")];
   const items = [];
+
   cols.forEach((colEl, idx) => {
     const ids = [...colEl.querySelectorAll(".image-container")]
       .filter((n) => !n.classList.contains("add-tile"))
       .map((n) => n.dataset.id);
-    ids.forEach((id, j) => items.push({ id, col: idx + 1, col_order: j + 1 }));
+
+    ids.forEach((id, j) => {
+      items.push({
+        id,
+        col: idx + 1,
+        col_order: j + 1,
+      });
+    });
   });
+
   return items;
 }
 
 async function saveAll() {
-  try { ensureLoggedIn(); }
-  catch { redirectToCentralLogin(); return; }
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
 
   setText("adminToolbarStatus", "A guardar...");
 
   const fotosItems = [];
   const pinturasItems = [];
+  const videosItems = [];
 
   for (const box of getBoxes()) {
     const kind = box.dataset.kind;
@@ -560,9 +669,18 @@ async function saveAll() {
 
     if (kind === "fotografia") {
       const category = box.dataset.category || null;
-      for (const it of items) fotosItems.push({ ...it, category });
+
+      for (const it of items) {
+        fotosItems.push({ ...it, category });
+      }
+    } else if (kind === "videos") {
+      for (const it of items) {
+        videosItems.push(it);
+      }
     } else {
-      for (const it of items) pinturasItems.push({ ...it, type: kind });
+      for (const it of items) {
+        pinturasItems.push({ ...it, type: kind });
+      }
     }
   }
 
@@ -574,6 +692,7 @@ async function saveAll() {
         body: JSON.stringify({ items: fotosItems }),
       });
     }
+
     if (pinturasItems.length) {
       await fetchJson("/api/admin/reorder/pinturas", {
         method: "POST",
@@ -582,8 +701,17 @@ async function saveAll() {
       });
     }
 
+    if (videosItems.length) {
+      await fetchJson("/api/admin/reorder/videos", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ items: videosItems }),
+      });
+    }
+
     setDirty(false);
     setText("adminToolbarStatus", "Guardado ✅");
+
     await refreshAllBoxes();
   } catch (e) {
     setText("adminToolbarStatus", `Erro: ${e.message}`);
@@ -593,15 +721,23 @@ async function saveAll() {
 async function cancelAll() {
   setText("adminToolbarStatus", "A reverter...");
   setDirty(false);
+
   await refreshAllBoxes();
+
   setText("adminToolbarStatus", "");
 }
 
 async function refreshAllBoxes() {
   const tasks = getBoxes().map(async (box) => {
     const overlayMode = box.dataset.overlay || "none";
-    await renderBox({ boxId: box.id, endpoint: box.dataset.endpoint, overlayMode });
+
+    await renderBox({
+      boxId: box.id,
+      endpoint: box.dataset.endpoint,
+      overlayMode,
+    });
   });
+
   await Promise.all(tasks);
 
   if (adminOn) {
@@ -625,30 +761,66 @@ async function openEditModal(boxId, itemId) {
     try {
       const items = await fetchJson(box.dataset.endpoint);
       const map = new Map();
-      for (const it of items) map.set(String(it.id), it);
+
+      for (const it of items) {
+        map.set(String(it.id), it);
+      }
+
       boxCache.set(boxId, map);
       item = map.get(String(itemId)) || null;
     } catch {}
   }
+
   if (!item) return;
 
   q("#aEditBoxId").value = boxId;
   q("#aEditKind").value = kind;
   q("#aEditId").value = String(item.id);
-  q("#aEditPreview").src = resolveUrl(item.url);
   q("#aEditTitle").value = item.title || "";
   q("#aEditYear").value = item.year ?? "";
 
+  const imgPreview = q("#aEditPreview");
+  const videoPreview = q("#aEditVideoPreview");
+
+  if (kind === "videos") {
+    imgPreview.style.display = "none";
+    imgPreview.removeAttribute("src");
+
+    videoPreview.style.display = "block";
+    videoPreview.src = resolveUrl(item.url);
+  } else {
+    stopEditPreviewVideo();
+
+    videoPreview.style.display = "none";
+    imgPreview.style.display = "block";
+    imgPreview.src = resolveUrl(item.url);
+  }
+
+  const yearWrap = q("#aEditYearWrap");
   const catWrap = q("#aEditCategoryWrap");
   const paintWrap = q("#aEditPaintFields");
+  const videoWrap = q("#aEditVideoFields");
 
   if (kind === "fotografia") {
+    yearWrap.style.display = "";
     catWrap.style.display = "";
     paintWrap.style.display = "none";
+    videoWrap.style.display = "none";
+
     q("#aEditCategory").value = item.category || box.dataset.category || "tema_livre";
+  } else if (kind === "videos") {
+    yearWrap.style.display = "none";
+    catWrap.style.display = "none";
+    paintWrap.style.display = "none";
+    videoWrap.style.display = "";
+
+    q("#aEditPublishedDate").value = item.published_date || "";
   } else {
+    yearWrap.style.display = "";
     catWrap.style.display = "none";
     paintWrap.style.display = "";
+    videoWrap.style.display = "none";
+
     q("#aEditTechnique").value = item.technique || "";
     q("#aEditDimensions").value = item.dimensions || "";
     q("#aEditType").value = item.type || kind;
@@ -659,8 +831,12 @@ async function openEditModal(boxId, itemId) {
 }
 
 async function saveEdit() {
-  try { ensureLoggedIn(); }
-  catch { redirectToCentralLogin(); return; }
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
 
   const id = q("#aEditId").value;
   const kind = q("#aEditKind").value;
@@ -675,7 +851,19 @@ async function saveEdit() {
         year: q("#aEditYear").value ? Number(q("#aEditYear").value) : null,
         category: q("#aEditCategory").value || null,
       };
+
       await fetchJson(`/api/admin/fotos/${id}`, {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify(payload),
+      });
+    } else if (kind === "videos") {
+      const payload = {
+        title: q("#aEditTitle").value || null,
+        published_date: q("#aEditPublishedDate").value || null,
+      };
+
+      await fetchJson(`/api/admin/videos/${id}`, {
         method: "PATCH",
         headers: authHeaders(true),
         body: JSON.stringify(payload),
@@ -688,6 +876,7 @@ async function saveEdit() {
         dimensions: q("#aEditDimensions").value || null,
         type: q("#aEditType").value || kind,
       };
+
       await fetchJson(`/api/admin/pinturas/${id}`, {
         method: "PATCH",
         headers: authHeaders(true),
@@ -695,14 +884,20 @@ async function saveEdit() {
       });
     }
 
+    stopEditPreviewVideo();
     show(q("#adminEditModal"), false);
+
     await refreshAllBoxes();
 
     const b = document.getElementById(boxId);
     if (b) {
       const items = await fetchJson(b.dataset.endpoint);
       const map = new Map();
-      for (const it of items) map.set(String(it.id), it);
+
+      for (const it of items) {
+        map.set(String(it.id), it);
+      }
+
       boxCache.set(boxId, map);
     }
   } catch (e) {
@@ -711,22 +906,38 @@ async function saveEdit() {
 }
 
 async function deleteFromEdit() {
-  try { ensureLoggedIn(); }
-  catch { redirectToCentralLogin(); return; }
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
 
-  if (!confirm("Apagar esta imagem?")) return;
+  const kind = q("#aEditKind").value;
+  const confirmText = kind === "videos" ? "Apagar este vídeo?" : "Apagar esta imagem?";
+
+  if (!confirm(confirmText)) return;
 
   const id = q("#aEditId").value;
-  const kind = q("#aEditKind").value;
+
   setText("aEditStatus", "A apagar...");
 
   try {
-    const endpoint = (kind === "fotografia")
-      ? `/api/admin/fotos/${id}`
-      : `/api/admin/pinturas/${id}`;
+    const endpoint =
+      kind === "fotografia"
+        ? `/api/admin/fotos/${id}`
+        : kind === "videos"
+          ? `/api/admin/videos/${id}`
+          : `/api/admin/pinturas/${id}`;
 
-    await fetchJson(endpoint, { method: "DELETE", headers: authHeaders(false) });
+    await fetchJson(endpoint, {
+      method: "DELETE",
+      headers: authHeaders(false),
+    });
+
+    stopEditPreviewVideo();
     show(q("#adminEditModal"), false);
+
     await refreshAllBoxes();
   } catch (e) {
     setText("aEditStatus", `Erro: ${e.message}`);
@@ -736,8 +947,13 @@ async function deleteFromEdit() {
 /* ----------------- Upload ----------------- */
 function openUploadModalForBox(box) {
   ensureModals();
-  try { ensureLoggedIn(); }
-  catch { redirectToCentralLogin(); return; }
+
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
 
   const kind = box.dataset.kind;
   const category = box.dataset.category || null;
@@ -746,15 +962,30 @@ function openUploadModalForBox(box) {
   q("#aUpCategory").value = category || "";
   q("#aUpTitle").value = "";
   q("#aUpYear").value = "";
+  q("#aUpPublishedDate").value = "";
   q("#aUpCol").value = "1";
   q("#aUpFile").value = "";
 
-  q("#aUpCategoryWrap").style.display = (kind === "fotografia") ? "" : "none";
-  q("#aUpPaintFields").style.display = (kind === "fotografia") ? "none" : "";
+  q("#aUpCategoryWrap").style.display = kind === "fotografia" ? "" : "none";
+  q("#aUpPaintFields").style.display =
+    kind !== "fotografia" && kind !== "videos" ? "" : "none";
+  q("#aUpPublishedDateWrap").style.display = kind === "videos" ? "" : "none";
+  q("#aUpYearWrap").style.display = kind === "videos" ? "none" : "";
 
   if (kind === "fotografia") {
+    q("#aUpModalTitle").textContent = "Adicionar nova fotografia";
+    q("#aUpFileLabel").textContent = "Imagem";
+    q("#aUpFile").accept = "image/*";
     q("#aUpCategorySelect").value = category || "tema_livre";
+  } else if (kind === "videos") {
+    q("#aUpModalTitle").textContent = "Adicionar novo vídeo";
+    q("#aUpFileLabel").textContent = "Vídeo";
+    q("#aUpFile").accept = "video/mp4,video/webm,video/quicktime,.mov,.m4v";
   } else {
+    q("#aUpModalTitle").textContent = "Adicionar nova obra";
+    q("#aUpFileLabel").textContent = "Imagem";
+    q("#aUpFile").accept = "image/*";
+
     q("#aUpTechnique").value = "";
     q("#aUpDimensions").value = "";
     q("#aUpType").value = kind;
@@ -765,8 +996,12 @@ function openUploadModalForBox(box) {
 }
 
 async function doUpload() {
-  try { ensureLoggedIn(); }
-  catch { redirectToCentralLogin(); return; }
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
 
   setText("aUpStatus", "A enviar...");
 
@@ -776,24 +1011,49 @@ async function doUpload() {
   const year = q("#aUpYear").value;
   const file = q("#aUpFile").files[0];
 
-  if (!file) { setText("aUpStatus", "Escolhe uma imagem."); return; }
+  if (!file) {
+    setText("aUpStatus", kind === "videos" ? "Escolhe um vídeo." : "Escolhe uma imagem.");
+    return;
+  }
 
   const fd = new FormData();
   fd.append("col", col);
-  if (title && title.trim()) fd.append("title", title.trim());
-  if (year) fd.append("year", year);
+
+  if (title && title.trim()) {
+    fd.append("title", title.trim());
+  }
+
+  if (kind !== "videos" && year) {
+    fd.append("year", year);
+  }
+
   fd.append("file", file);
 
   let endpoint;
+
   if (kind === "fotografia") {
     const cat = q("#aUpCategorySelect").value;
     fd.append("category", cat);
+
     endpoint = "/api/admin/upload/foto";
+  } else if (kind === "videos") {
+    const publishedDate = q("#aUpPublishedDate").value;
+
+    if (publishedDate) {
+      fd.append("published_date", publishedDate);
+    }
+
+    endpoint = "/api/admin/upload/video";
   } else {
     const type = q("#aUpType").value;
+
     fd.append("type", type);
-    fd.append("technique", q("#aUpTechnique").value || (type === "mista" ? "Técnica mista" : ""));
+    fd.append(
+      "technique",
+      q("#aUpTechnique").value || (type === "mista" ? "Técnica mista" : "")
+    );
     fd.append("dimensions", q("#aUpDimensions").value || "");
+
     endpoint = "/api/admin/upload/pintura";
   }
 
@@ -808,13 +1068,19 @@ async function doUpload() {
     const data = ct.includes("application/json") ? await res.json() : await res.text();
 
     if (!res.ok) {
-      const msg = data?.detail ? data.detail : (typeof data === "string" ? data : `HTTP ${res.status}`);
+      const msg = data?.detail
+        ? data.detail
+        : typeof data === "string"
+          ? data
+          : `HTTP ${res.status}`;
+
       setText("aUpStatus", `Erro: ${msg}`);
       return;
     }
 
     setText("aUpStatus", "Upload concluído ✅");
     show(q("#adminUploadModal"), false);
+
     await refreshAllBoxes();
   } catch (e) {
     setText("aUpStatus", `Erro: ${e.message}`);
@@ -826,17 +1092,21 @@ function redirectToCentralLogin() {
   const next = encodeURIComponent(
     window.location.pathname + window.location.search + window.location.hash
   );
+
   window.location.href = `/admin/?next=${next}`;
 }
 
 async function logout() {
   idToken = null;
+
   STORE.removeItem(SS_TOKEN_KEY);
   STORE.removeItem(SS_ON_KEY);
+
   await turnOffAdmin();
 
   const u = new URL(location.href);
   u.searchParams.delete("admin");
+
   location.href = u.pathname + (u.search ? u.search : "") + u.hash;
 }
 
@@ -853,6 +1123,7 @@ async function init() {
     if (STORE.getItem(SS_TOKEN_KEY) && STORE.getItem(SS_ON_KEY) === "1") {
       guardAdminParam();
     }
+
     return;
   }
 
@@ -866,14 +1137,21 @@ async function init() {
 
   // valida token no backend
   try {
-    await fetchJson("/api/admin/me", { method: "GET", headers: authHeaders(false) });
+    await fetchJson("/api/admin/me", {
+      method: "GET",
+      headers: authHeaders(false),
+    });
+
     STORE.setItem(SS_ON_KEY, "1");
+
     installAdminCapture();
     await turnOnAdmin();
   } catch (e) {
     idToken = null;
+
     STORE.removeItem(SS_TOKEN_KEY);
     STORE.removeItem(SS_ON_KEY);
+
     redirectToCentralLogin();
   }
 }

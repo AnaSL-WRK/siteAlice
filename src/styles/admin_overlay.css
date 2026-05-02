@@ -261,5 +261,19 @@ body.admin-on .admin-badge {
   }
 }
 
+/* Video preview in admin edit modal */
+
+.a-preview video,
+video.a-preview {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: #000;
+  display: block;
+}
+
+
 body.admin-on .image-container { cursor: grab; }
 body.admin-on .image-container.dragging { cursor: grabbing; }
