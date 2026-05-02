@@ -19,4 +19,4 @@ class Video(Base):
     thumbnail_path = Column(Text, nullable=False)     # media/videos/thumbnails/uuid.jpg
     thumbnail_time = Column(Float, nullable=True)     # selected second
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    published_date = Column(DateTime(timezone=True), nullable=True)  # ✅ --- IGNORE ---
