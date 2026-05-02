@@ -7,6 +7,7 @@
 // - "Add new" tile opens upload modal
 // - Keep admin=1 across navbar links
 // - Auto-scroll while dragging
+// - Video upload supports selecting a thumbnail moment
 
 import { fetchJson, apiBase, resolveUrl } from "./api_client.js";
 import { renderBox } from "./gallery_modal.js";
@@ -22,8 +23,16 @@ let dirty = false;
 let dragEl = null;
 let dragOriginBoxId = null;
 
+let uploadThumbBlob = null;
+let uploadThumbPreviewUrl = null;
+let uploadVideoPreviewUrl = null;
+
 const urlNow = new URL(window.location.href);
 const isAdminUrl = urlNow.searchParams.get("admin") === "1";
+
+function isVideoKind(kind) {
+  return kind === "videos" || kind === "video";
+}
 
 /* ----------------- DOM helpers ----------------- */
 function q(sel, root = document) {
@@ -85,6 +94,7 @@ function rewriteLinksForAdmin() {
     if (!isHtml && !isFolder) continue;
 
     u.searchParams.set("admin", "1");
+
     a.setAttribute(
       "href",
       u.pathname + "?" + u.searchParams.toString() + u.hash
@@ -120,6 +130,7 @@ function ensureToolbar() {
   bar.id = "adminToolbar";
   bar.className = "admin-toolbar";
   bar.style.display = "none";
+
   bar.innerHTML = `
     <div class="left">
       <span class="status" style="font-weight:800;">Modo Admin</span>
@@ -131,6 +142,7 @@ function ensureToolbar() {
       <button id="adminBtnLogout" class="danger" type="button">Sair</button>
     </div>
   `;
+
   document.body.appendChild(bar);
 
   q("#adminBtnSave").addEventListener("click", saveAll);
@@ -138,12 +150,15 @@ function ensureToolbar() {
   q("#adminBtnLogout").addEventListener("click", logout);
 }
 
+let __modalCloseHandlersInstalled = false;
+
 function ensureModals() {
   // Edit modal
   if (!q("#adminEditModal")) {
     const el = document.createElement("div");
     el.id = "adminEditModal";
     el.className = "a-modal";
+
     el.innerHTML = `
       <div class="a-content">
         <span class="a-close" data-close="adminEditModal">&times;</span>
@@ -214,6 +229,7 @@ function ensureModals() {
         <div class="status" id="aEditStatus"></div>
       </div>
     `;
+
     document.body.appendChild(el);
 
     q("#aBtnSaveEdit").addEventListener("click", saveEdit);
@@ -225,6 +241,7 @@ function ensureModals() {
     const el = document.createElement("div");
     el.id = "adminUploadModal";
     el.className = "a-modal";
+
     el.innerHTML = `
       <div class="a-content">
         <span class="a-close" data-close="adminUploadModal">&times;</span>
@@ -289,6 +306,29 @@ function ensureModals() {
         <label id="aUpFileLabel">Ficheiro</label>
         <input id="aUpFile" type="file" accept="image/*" />
 
+        <div id="aUpVideoThumbFields" style="display:none;">
+          <label>Pré-visualização do vídeo</label>
+          <video id="aUpVideoPreview" class="a-preview" controls playsinline style="display:none;"></video>
+
+          <label>Momento da thumbnail</label>
+          <div class="row">
+            <div>
+              <input id="aUpThumbTime" type="number" min="0" step="0.1" value="0" />
+            </div>
+            <div>
+              <input id="aUpThumbRange" type="range" min="0" max="0" step="0.1" value="0" disabled />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" id="aBtnUseCurrentVideoTime" type="button">Usar momento atual</button>
+            <button class="secondary" id="aBtnPreviewThumb" type="button">Pré-visualizar thumbnail</button>
+          </div>
+
+          <img id="aThumbPreview" class="a-preview" alt="Thumbnail escolhida" style="display:none; margin-top:12px;" />
+          <div class="small" id="aThumbHint"></div>
+        </div>
+
         <div class="actions">
           <button class="primary" id="aBtnDoUpload" type="button">Fazer upload</button>
           <button class="secondary" type="button" data-close="adminUploadModal">Cancelar</button>
@@ -297,12 +337,24 @@ function ensureModals() {
         <div class="status" id="aUpStatus"></div>
       </div>
     `;
+
     document.body.appendChild(el);
 
     q("#aBtnDoUpload").addEventListener("click", doUpload);
+    q("#aUpFile").addEventListener("change", handleUploadFileChange);
+    q("#aUpThumbTime").addEventListener("input", syncThumbNumberToRange);
+    q("#aUpThumbRange").addEventListener("input", syncThumbRangeToNumber);
+    q("#aBtnUseCurrentVideoTime").addEventListener("click", useCurrentVideoTimeForThumbnail);
+    q("#aBtnPreviewThumb").addEventListener("click", previewUploadVideoThumbnail);
   }
 
-  // close handlers (delegated)
+  installModalCloseHandlers();
+}
+
+function installModalCloseHandlers() {
+  if (__modalCloseHandlersInstalled) return;
+  __modalCloseHandlersInstalled = true;
+
   document.addEventListener("click", (e) => {
     const close = e.target.closest("[data-close]");
     if (!close) return;
@@ -312,24 +364,31 @@ function ensureModals() {
 
     if (m) {
       stopEditPreviewVideo();
+      resetUploadVideoTools();
       show(m, false);
     }
   });
 
-  for (const m of qa(".a-modal")) {
-    m.addEventListener("click", (e) => {
-      if (e.target === m) {
-        stopEditPreviewVideo();
-        show(m, false);
-      }
-    });
-  }
+  document.addEventListener("click", (e) => {
+    const m = e.target.closest(".a-modal");
+    if (!m) return;
+
+    if (e.target === m) {
+      stopEditPreviewVideo();
+      resetUploadVideoTools();
+      show(m, false);
+    }
+  });
 
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
 
     stopEditPreviewVideo();
-    for (const m of qa(".a-modal")) show(m, false);
+    resetUploadVideoTools();
+
+    for (const m of qa(".a-modal")) {
+      show(m, false);
+    }
   });
 }
 
@@ -340,6 +399,254 @@ function stopEditPreviewVideo() {
   v.pause();
   v.removeAttribute("src");
   v.load();
+}
+
+/* ----------------- Video thumbnail helpers ----------------- */
+function clearUploadThumbnailOnly() {
+  uploadThumbBlob = null;
+
+  if (uploadThumbPreviewUrl) {
+    URL.revokeObjectURL(uploadThumbPreviewUrl);
+    uploadThumbPreviewUrl = null;
+  }
+
+  const preview = q("#aThumbPreview");
+  if (preview) {
+    preview.removeAttribute("src");
+    preview.style.display = "none";
+  }
+}
+
+function resetUploadVideoTools() {
+  clearUploadThumbnailOnly();
+
+  const video = q("#aUpVideoPreview");
+  if (video) {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    video.style.display = "none";
+  }
+
+  if (uploadVideoPreviewUrl) {
+    URL.revokeObjectURL(uploadVideoPreviewUrl);
+    uploadVideoPreviewUrl = null;
+  }
+
+  const range = q("#aUpThumbRange");
+  if (range) {
+    range.value = "0";
+    range.max = "0";
+    range.disabled = true;
+  }
+
+  const time = q("#aUpThumbTime");
+  if (time) {
+    time.value = "0";
+    time.removeAttribute("max");
+  }
+
+  setText("aThumbHint", "");
+}
+
+function handleUploadFileChange() {
+  const kind = q("#aUpKind")?.value || "";
+  const file = q("#aUpFile")?.files?.[0];
+
+  resetUploadVideoTools();
+
+  if (!isVideoKind(kind)) return;
+  if (!file) return;
+
+  const video = q("#aUpVideoPreview");
+  const range = q("#aUpThumbRange");
+  const time = q("#aUpThumbTime");
+
+  uploadVideoPreviewUrl = URL.createObjectURL(file);
+
+  video.src = uploadVideoPreviewUrl;
+  video.style.display = "block";
+
+  video.onloadedmetadata = () => {
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const max = Math.max(0, duration).toFixed(1);
+
+    range.max = max;
+    range.disabled = false;
+    range.value = "0";
+
+    time.max = max;
+    time.value = "0";
+
+    setText("aThumbHint", `Duração: ${max}s. Escolhe o momento e pré-visualiza a thumbnail.`);
+  };
+
+  video.onerror = () => {
+    setText("aUpStatus", "Erro ao carregar pré-visualização do vídeo.");
+  };
+}
+
+function clampThumbTime(value) {
+  const range = q("#aUpThumbRange");
+  const max = Number(range?.max || 0);
+
+  let n = Number(value);
+  if (!Number.isFinite(n)) n = 0;
+  if (n < 0) n = 0;
+  if (max > 0 && n > max) n = max;
+
+  return Number(n.toFixed(1));
+}
+
+function syncThumbNumberToRange() {
+  const time = q("#aUpThumbTime");
+  const range = q("#aUpThumbRange");
+
+  const t = clampThumbTime(time.value);
+  time.value = String(t);
+
+  if (range) range.value = String(t);
+
+  clearUploadThumbnailOnly();
+}
+
+function syncThumbRangeToNumber() {
+  const time = q("#aUpThumbTime");
+  const range = q("#aUpThumbRange");
+
+  const t = clampThumbTime(range.value);
+  range.value = String(t);
+
+  if (time) time.value = String(t);
+
+  clearUploadThumbnailOnly();
+}
+
+async function useCurrentVideoTimeForThumbnail() {
+  const video = q("#aUpVideoPreview");
+  if (!video || !video.src) {
+    setText("aUpStatus", "Escolhe um vídeo primeiro.");
+    return;
+  }
+
+  const t = clampThumbTime(video.currentTime || 0);
+
+  q("#aUpThumbTime").value = String(t);
+  q("#aUpThumbRange").value = String(t);
+
+  await previewUploadVideoThumbnail();
+}
+
+function captureVideoFrame(file, timeSeconds) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error("Escolhe um vídeo primeiro."));
+      return;
+    }
+
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    let finished = false;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      video.removeAttribute("src");
+      video.load();
+    };
+
+    const fail = (msg) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(new Error(msg));
+    };
+
+    const draw = () => {
+      if (finished) return;
+
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+
+      if (!w || !h) {
+        fail("Não foi possível ler a imagem do vídeo.");
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, w, h);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            fail("Não foi possível criar a thumbnail.");
+            return;
+          }
+
+          finished = true;
+          cleanup();
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.9
+      );
+    };
+
+    video.onerror = () => fail("Erro ao processar o vídeo.");
+
+    video.onloadedmetadata = () => {
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const safeTime = Math.min(Math.max(Number(timeSeconds) || 0, 0), duration || 0);
+
+      if (safeTime <= 0) {
+        video.onloadeddata = draw;
+        video.currentTime = 0;
+      } else {
+        video.onseeked = draw;
+        video.currentTime = safeTime;
+      }
+    };
+
+    video.src = objectUrl;
+  });
+}
+
+async function previewUploadVideoThumbnail() {
+  const file = q("#aUpFile")?.files?.[0];
+  const time = clampThumbTime(q("#aUpThumbTime")?.value || 0);
+
+  if (!file) {
+    setText("aUpStatus", "Escolhe um vídeo primeiro.");
+    return;
+  }
+
+  try {
+    setText("aUpStatus", "A gerar thumbnail...");
+
+    uploadThumbBlob = await captureVideoFrame(file, time);
+
+    if (uploadThumbPreviewUrl) {
+      URL.revokeObjectURL(uploadThumbPreviewUrl);
+    }
+
+    uploadThumbPreviewUrl = URL.createObjectURL(uploadThumbBlob);
+
+    const preview = q("#aThumbPreview");
+    preview.src = uploadThumbPreviewUrl;
+    preview.style.display = "block";
+
+    setText("aUpStatus", "Thumbnail pronta ✅");
+  } catch (e) {
+    setText("aUpStatus", `Erro: ${e.message}`);
+  }
 }
 
 /* ----------------- Auto-scroll while dragging ----------------- */
@@ -466,7 +773,7 @@ function ensureAddTile(box) {
   let label;
   if (box.dataset.kind === "fotografia") {
     label = "➕ Adicionar nova fotografia";
-  } else if (box.dataset.kind === "videos") {
+  } else if (isVideoKind(box.dataset.kind)) {
     label = "➕ Adicionar novo vídeo";
   } else {
     label = "➕ Adicionar nova obra";
@@ -673,7 +980,7 @@ async function saveAll() {
       for (const it of items) {
         fotosItems.push({ ...it, category });
       }
-    } else if (kind === "videos") {
+    } else if (isVideoKind(kind)) {
       for (const it of items) {
         videosItems.push(it);
       }
@@ -782,7 +1089,7 @@ async function openEditModal(boxId, itemId) {
   const imgPreview = q("#aEditPreview");
   const videoPreview = q("#aEditVideoPreview");
 
-  if (kind === "videos") {
+  if (isVideoKind(kind)) {
     imgPreview.style.display = "none";
     imgPreview.removeAttribute("src");
 
@@ -808,7 +1115,7 @@ async function openEditModal(boxId, itemId) {
     videoWrap.style.display = "none";
 
     q("#aEditCategory").value = item.category || box.dataset.category || "tema_livre";
-  } else if (kind === "videos") {
+  } else if (isVideoKind(kind)) {
     yearWrap.style.display = "none";
     catWrap.style.display = "none";
     paintWrap.style.display = "none";
@@ -857,7 +1164,7 @@ async function saveEdit() {
         headers: authHeaders(true),
         body: JSON.stringify(payload),
       });
-    } else if (kind === "videos") {
+    } else if (isVideoKind(kind)) {
       const payload = {
         title: q("#aEditTitle").value || null,
         published_date: q("#aEditPublishedDate").value || null,
@@ -914,7 +1221,7 @@ async function deleteFromEdit() {
   }
 
   const kind = q("#aEditKind").value;
-  const confirmText = kind === "videos" ? "Apagar este vídeo?" : "Apagar esta imagem?";
+  const confirmText = isVideoKind(kind) ? "Apagar este vídeo?" : "Apagar esta imagem?";
 
   if (!confirm(confirmText)) return;
 
@@ -926,7 +1233,7 @@ async function deleteFromEdit() {
     const endpoint =
       kind === "fotografia"
         ? `/api/admin/fotos/${id}`
-        : kind === "videos"
+        : isVideoKind(kind)
           ? `/api/admin/videos/${id}`
           : `/api/admin/pinturas/${id}`;
 
@@ -955,8 +1262,11 @@ function openUploadModalForBox(box) {
     return;
   }
 
+  resetUploadVideoTools();
+
   const kind = box.dataset.kind;
   const category = box.dataset.category || null;
+  const videoMode = isVideoKind(kind);
 
   q("#aUpKind").value = kind;
   q("#aUpCategory").value = category || "";
@@ -967,17 +1277,17 @@ function openUploadModalForBox(box) {
   q("#aUpFile").value = "";
 
   q("#aUpCategoryWrap").style.display = kind === "fotografia" ? "" : "none";
-  q("#aUpPaintFields").style.display =
-    kind !== "fotografia" && kind !== "videos" ? "" : "none";
-  q("#aUpPublishedDateWrap").style.display = kind === "videos" ? "" : "none";
-  q("#aUpYearWrap").style.display = kind === "videos" ? "none" : "";
+  q("#aUpPaintFields").style.display = kind !== "fotografia" && !videoMode ? "" : "none";
+  q("#aUpPublishedDateWrap").style.display = videoMode ? "" : "none";
+  q("#aUpYearWrap").style.display = videoMode ? "none" : "";
+  q("#aUpVideoThumbFields").style.display = videoMode ? "" : "none";
 
   if (kind === "fotografia") {
     q("#aUpModalTitle").textContent = "Adicionar nova fotografia";
     q("#aUpFileLabel").textContent = "Imagem";
     q("#aUpFile").accept = "image/*";
     q("#aUpCategorySelect").value = category || "tema_livre";
-  } else if (kind === "videos") {
+  } else if (videoMode) {
     q("#aUpModalTitle").textContent = "Adicionar novo vídeo";
     q("#aUpFileLabel").textContent = "Vídeo";
     q("#aUpFile").accept = "video/mp4,video/webm,video/quicktime,.mov,.m4v";
@@ -1006,13 +1316,14 @@ async function doUpload() {
   setText("aUpStatus", "A enviar...");
 
   const kind = q("#aUpKind").value;
+  const videoMode = isVideoKind(kind);
   const col = q("#aUpCol").value;
   const title = q("#aUpTitle").value;
   const year = q("#aUpYear").value;
   const file = q("#aUpFile").files[0];
 
   if (!file) {
-    setText("aUpStatus", kind === "videos" ? "Escolhe um vídeo." : "Escolhe uma imagem.");
+    setText("aUpStatus", videoMode ? "Escolhe um vídeo." : "Escolhe uma imagem.");
     return;
   }
 
@@ -1023,7 +1334,7 @@ async function doUpload() {
     fd.append("title", title.trim());
   }
 
-  if (kind !== "videos" && year) {
+  if (!videoMode && year) {
     fd.append("year", year);
   }
 
@@ -1036,12 +1347,20 @@ async function doUpload() {
     fd.append("category", cat);
 
     endpoint = "/api/admin/upload/foto";
-  } else if (kind === "videos") {
+  } else if (videoMode) {
     const publishedDate = q("#aUpPublishedDate").value;
+    const thumbTime = clampThumbTime(q("#aUpThumbTime").value || 0);
 
     if (publishedDate) {
       fd.append("published_date", publishedDate);
     }
+
+    setText("aUpStatus", "A gerar thumbnail...");
+
+    const thumbBlob = await captureVideoFrame(file, thumbTime);
+
+    fd.append("thumbnail_time", String(thumbTime));
+    fd.append("thumbnail", thumbBlob, "thumbnail.jpg");
 
     endpoint = "/api/admin/upload/video";
   } else {
@@ -1058,6 +1377,8 @@ async function doUpload() {
   }
 
   try {
+    setText("aUpStatus", "A enviar...");
+
     const res = await fetch(`${apiBase()}${endpoint}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${idToken}` },
@@ -1079,6 +1400,8 @@ async function doUpload() {
     }
 
     setText("aUpStatus", "Upload concluído ✅");
+
+    resetUploadVideoTools();
     show(q("#adminUploadModal"), false);
 
     await refreshAllBoxes();
@@ -1112,14 +1435,12 @@ async function logout() {
 
 /* ----------------- Boot ----------------- */
 async function init() {
-  // Se a página não tiver galerias, não faz nada
   if (!getBoxes().length) return;
 
   const paramsNow = new URL(location.href).searchParams;
   const wantAdminNow = paramsNow.get("admin") === "1";
 
   if (!wantAdminNow) {
-    // Se já tens sessão admin, força admin=1 nesta página também
     if (STORE.getItem(SS_TOKEN_KEY) && STORE.getItem(SS_ON_KEY) === "1") {
       guardAdminParam();
     }
@@ -1135,7 +1456,6 @@ async function init() {
     return;
   }
 
-  // valida token no backend
   try {
     await fetchJson("/api/admin/me", {
       method: "GET",

@@ -28,20 +28,18 @@ function buildOverlayText(item, overlayMode) {
   if (!overlayMode || overlayMode === 'none') return '';
 
   if (overlayMode === 'foto') {
-    // fotografia: só título
     return item.title ? String(item.title) : '';
   }
 
   if (overlayMode === 'video') {
-    // vídeo: título + data de publicação
     const lines = [];
     if (item.title) lines.push(item.title);
     if (item.published_date) lines.push(formatDatePt(item.published_date));
+    if (item.year) lines.push(item.year);
     return linesToOverlayHtml(lines);
   }
 
   if (overlayMode === 'mista') {
-    // técnica mista: título, ano, dimensões
     const lines = [];
     if (item.title) lines.push(item.title);
     if (item.year) lines.push(item.year);
@@ -49,7 +47,6 @@ function buildOverlayText(item, overlayMode) {
     return linesToOverlayHtml(lines);
   }
 
-  // pintura: título, ano, técnica, dimensões
   const lines = [];
   if (item.title) lines.push(item.title);
   if (item.year) lines.push(item.year);
@@ -67,6 +64,8 @@ function createImageNode(item, overlayMode) {
   container.dataset.media = isVideo ? 'video' : 'image';
 
   if (isVideo) {
+    container.dataset.videoSrc = resolveUrl(item.url);
+
     const video = document.createElement('video');
     video.src = resolveUrl(item.url);
     video.muted = true;
@@ -74,6 +73,26 @@ function createImageNode(item, overlayMode) {
     video.preload = 'metadata';
     video.className = 'video-thumb';
     video.setAttribute('aria-label', item.title || 'Vídeo');
+
+    // Best option: use a generated thumbnail image from the backend
+    if (item.thumbnail_url) {
+      video.poster = resolveUrl(item.thumbnail_url);
+      container.dataset.thumbnailSrc = resolveUrl(item.thumbnail_url);
+    }
+
+    // Fallback: if no thumbnail image exists, seek to the chosen moment
+    video.addEventListener('loadedmetadata', () => {
+      if (item.thumbnail_url) return;
+
+      const t = Number(item.thumbnail_time);
+      if (!Number.isFinite(t) || t <= 0) return;
+
+      try {
+        video.currentTime = Math.min(t, video.duration || t);
+      } catch {
+        // ignore browsers that block seeking before enough metadata is ready
+      }
+    });
 
     container.appendChild(video);
 
@@ -94,7 +113,6 @@ function createImageNode(item, overlayMode) {
     overlay.className = 'overlay';
 
     const p = document.createElement('p');
-    // overlay permite <br>
     p.innerHTML = overlayHtml;
 
     overlay.appendChild(p);
@@ -148,21 +166,16 @@ function openImageModal({ src, descHtml }) {
   stopModalVideo(modal);
 
   modalContent.classList.remove('is-video');
+  modalContent.removeAttribute('style');
 
   modalVideo.style.display = 'none';
+  modalImg.removeAttribute('style');
   modalImg.style.display = 'block';
 
   modalDesc.innerHTML = descHtml || '';
-  modalImg.onload = null;
-  modalImg.onerror = null;
-
-  // reset estilos inline antigos
-  modalContent.removeAttribute('style');
-  modalImg.removeAttribute('style');
 
   modal.style.display = 'flex';
 
-  // força refresh mesmo que seja o mesmo src
   modalImg.src = '';
   modalImg.src = src;
 
@@ -212,36 +225,31 @@ function installUniversalModal() {
   const modal = ensureUniversalModalDom();
   const closeBtn = modal.querySelector('.u-close');
 
-  // fechar por X
   closeBtn.addEventListener('click', closeModal);
 
-  // fechar por click no backdrop
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
   });
 
-  // fechar por ESC
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
 
-  // Event delegation: abre modal ao clicar numa .image-container
   document.addEventListener('click', (e) => {
     const container = e.target.closest('.image-container');
     if (!container) return;
 
-    // se for tile do admin, não abre modal público
     if (container.classList.contains('add-tile')) return;
 
     const overlayP = container.querySelector('.overlay p');
     const descHtml = overlayP ? overlayP.innerHTML : '';
 
     if (container.dataset.media === 'video') {
-      const video = container.querySelector('video');
-      if (!video) return;
+      const src = container.dataset.videoSrc || container.querySelector('video')?.src;
+      if (!src) return;
 
       openVideoModal({
-        src: video.src,
+        src,
         descHtml,
       });
 
@@ -270,7 +278,6 @@ export async function renderBox({
   timeoutMs = 2000,
   keepStaticOnFail = true,
 }) {
-  // garante modal pronto (1x) antes de renderizar
   installUniversalModal();
 
   const box = document.getElementById(boxId);
@@ -281,7 +288,6 @@ export async function renderBox({
 
   let loading = null;
 
-  // se não havia estático: cria estrutura e loading
   if (!hadStatic) {
     box.innerHTML = '';
 
@@ -309,7 +315,6 @@ export async function renderBox({
 
     clearTimeout(t);
 
-    // substituir pelo dinâmico
     box.innerHTML = '';
 
     const col1 = createDreamColumn();
@@ -328,7 +333,6 @@ export async function renderBox({
       else col3.appendChild(node);
     }
   } catch (err) {
-    // Falhou: se havia estático, mantém. Se não havia, mostra erro.
     if (keepStaticOnFail && hadStatic) {
       box.innerHTML = staticHTML;
       return;

@@ -64,24 +64,16 @@ def was_provided(payload: BaseModel, field_name: str) -> bool:
     return field_name in getattr(payload, "__fields_set__", set())
 
 
-def save_upload_to_disk(
-    file: UploadFile,
-    rel_dir: str,
-    media_root: str,
-    allowed_mime: dict[str, str] = ALLOWED_IMAGE_MIME,
-) -> str:
+def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str, allowed: dict[str, str]) -> str:
     """
     Guarda em: <media_root>/<rel_dir>/<uuid>.<ext>
     Retorna file_path para BD: "media/<rel_dir>/<uuid>.<ext>"
     """
-    if file.content_type not in allowed_mime:
-        allowed = ", ".join(sorted(allowed_mime.keys()))
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type. Allowed: {allowed}",
-        )
 
-    ext = allowed_mime[file.content_type]
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
+
+    ext = allowed[file.content_type]
     file_id = uuid.uuid4()
 
     abs_dir = os.path.join(media_root, rel_dir)
@@ -94,6 +86,7 @@ def save_upload_to_disk(
         out.write(file.file.read())
 
     return f"media/{rel_dir}/{filename}".replace("\\", "/")
+
 
 
 def delete_file_if_exists(file_path: str) -> None:
@@ -266,61 +259,64 @@ def upload_pintura(
         "url": "/" + p.file_path,
     }
 
-
 @router.post("/upload/video")
 def upload_video(
     _: dict = Depends(require_admin),
     db: Session = Depends(get_db),
 
     title: Optional[str] = Form(None),
-    published_date: Optional[date] = Form(None),
+    year: Optional[int] = Form(None),
     col: int = Form(1),
+    thumbnail_time: Optional[float] = Form(None),
 
     file: UploadFile = File(...),
+    thumbnail: UploadFile = File(...),
 ):
-    """
-    Upload para tabela videos:
-    - ficheiro: mp4/webm/mov/m4v
-    - published_date: data de publicação opcional
-    - col_order: max+1 dentro da coluna
-    """
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
 
     q = db.query(func.max(Video.col_order)).filter(Video.col == col)
-
     max_order = q.scalar() or 0
     next_order = int(max_order) + 1
 
-    file_path = save_upload_to_disk(
-        file=file,
-        rel_dir="videos",
-        media_root=settings.media_root,
-        allowed_mime=ALLOWED_VIDEO_MIME,
+    video_path = save_upload_to_disk(
+        file,
+        "videos",
+        settings.media_root,
+        ALLOWED_VIDEO_MIME,
     )
 
-    v = Video(
+    thumbnail_path = save_upload_to_disk(
+        thumbnail,
+        "videos/thumbnails",
+        settings.media_root,
+        ALLOWED_IMAGE_MIME,
+    )
+
+    video = Video(
         title=title.strip() if title else None,
-        published_date=published_date,
+        year=year,
         col=col,
         col_order=next_order,
-        file_path=file_path,
+        file_path=video_path,
+        thumbnail_path=thumbnail_path,
+        thumbnail_time=thumbnail_time,
     )
 
-    db.add(v)
+    db.add(video)
     db.commit()
-    db.refresh(v)
+    db.refresh(video)
 
     return {
-        "id": str(v.id),
-        "title": v.title,
-        "published_date": v.published_date.isoformat() if v.published_date else None,
-        "col": int(v.col),
-        "col_order": int(v.col_order),
-        "url": "/" + v.file_path,
-        "media_type": "video",
+        "id": str(video.id),
+        "title": video.title,
+        "year": video.year,
+        "col": int(video.col),
+        "col_order": int(video.col_order),
+        "url": "/" + video.file_path,
+        "thumbnail_url": "/" + video.thumbnail_path,
+        "thumbnail_time": video.thumbnail_time,
     }
-
 
 # ------------------------------------------------------------
 # Reorder

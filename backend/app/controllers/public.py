@@ -72,11 +72,12 @@ def list_videos(
         {
             "id": str(v.id),
             "title": v.title,
-            "published_date": v.published_date.isoformat() if v.published_date else None,
+            "year": v.year,
             "col": int(v.col),
             "col_order": int(v.col_order),
             "url": "/" + v.file_path.replace("\\", "/"),
-            "media_type": "video",
+            "thumbnail_url": "/" + v.thumbnail_path.replace("\\", "/"),
+            "thumbnail_time": v.thumbnail_time,
         }
         for v in items
     ]
