@@ -192,6 +192,7 @@
         return;
       }
 
+      //must run before initialize to clear any cached account hint
       disableGoogleAutoSelect();
 
       if (!GOOGLE_CLIENT_ID) {
@@ -201,13 +202,15 @@
 
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        auto_select: false,
+        auto_select: false,           
         cancel_on_tap_outside: false,
         callback: async (resp) => {
           const token = resp.credential;
           await validateAndEnter(token);
         },
       });
+
+      window.google.accounts.id.disableAutoSelect();
 
       renderGoogleButton();
     }
