@@ -570,6 +570,42 @@ def update_video(
     return {"ok": True}
 
 
+@router.post("/videos/{video_id}/thumbnail")
+def update_video_thumbnail(
+    video_id: UUID,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+    thumbnail_time: Optional[float] = Form(None),
+    thumbnail: UploadFile = File(...),
+):
+    v = db.query(Video).filter(Video.id == video_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    old_thumbnail_path = v.thumbnail_path
+
+    new_thumbnail_path = save_upload_to_disk(
+        thumbnail,
+        "videos/thumbnails",
+        settings.media_root,
+        ALLOWED_IMAGE_MIME,
+    )
+
+    v.thumbnail_path = new_thumbnail_path
+    v.thumbnail_time = thumbnail_time
+
+    db.commit()
+
+    if old_thumbnail_path:
+        delete_file_if_exists(old_thumbnail_path)
+
+    return {
+        "ok": True,
+        "id": str(v.id),
+        "thumbnail_url": "/" + v.thumbnail_path,
+        "thumbnail_time": v.thumbnail_time,
+    }
+
 # ------------------------------------------------------------
 # Deletes
 # ------------------------------------------------------------
@@ -629,16 +665,17 @@ def delete_video(
     db: Session = Depends(get_db),
 ):
     v = db.query(Video).filter(Video.id == video_id).first()
-
     if not v:
         raise HTTPException(status_code=404, detail="Video not found")
 
     file_path = v.file_path
+    thumbnail_path = getattr(v, "thumbnail_path", None)
 
     db.delete(v)
     db.commit()
 
     delete_file_if_exists(file_path)
+    delete_file_if_exists(thumbnail_path)
 
     return {
         "ok": True,

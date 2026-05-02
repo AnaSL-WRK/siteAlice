@@ -69,15 +69,17 @@ def list_videos(
     )
 
     return [
-        {
-            "id": str(v.id),
-            "title": v.title,
-            "year": v.year,
-            "col": int(v.col),
-            "col_order": int(v.col_order),
-            "url": "/" + v.file_path.replace("\\", "/"),
-            "thumbnail_url": "/" + v.thumbnail_path.replace("\\", "/"),
-            "thumbnail_time": v.thumbnail_time,
-        }
-        for v in items
-    ]
+    {
+        "id": str(v.id),
+        "media_type": "video",
+        "title": v.title,
+        "year": v.year,
+        "published_date": str(v.published_date) if getattr(v, "published_date", None) else None,
+        "col": int(v.col),
+        "col_order": int(v.col_order),
+        "url": "/" + v.file_path.replace("\\", "/"),
+        "thumbnail_url": "/" + v.thumbnail_path.replace("\\", "/") if v.thumbnail_path else None,
+        "thumbnail_time": v.thumbnail_time,
+    }
+    for v in items
+]
