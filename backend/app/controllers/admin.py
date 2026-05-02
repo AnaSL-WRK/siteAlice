@@ -585,10 +585,10 @@ def update_video_thumbnail(
     old_thumbnail_path = v.thumbnail_path
 
     new_thumbnail_path = save_upload_to_disk(
-        thumbnail,
-        "videos/thumbnails",
-        settings.media_root,
-        ALLOWED_IMAGE_MIME,
+        file=thumbnail,
+        rel_dir="videos/thumbnails",
+        media_root=settings.media_root,
+        allowed_mime=ALLOWED_IMAGE_MIME,
     )
 
     v.thumbnail_path = new_thumbnail_path
@@ -596,8 +596,7 @@ def update_video_thumbnail(
 
     db.commit()
 
-    if old_thumbnail_path:
-        delete_file_if_exists(old_thumbnail_path)
+    delete_file_if_exists(old_thumbnail_path)
 
     return {
         "ok": True,

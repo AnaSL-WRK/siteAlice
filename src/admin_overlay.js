@@ -674,7 +674,6 @@ function captureVideoFrame(source, timeSeconds) {
     video.playsInline = true;
     video.crossOrigin = "anonymous";
 
-    // Safari is more reliable if the video element is actually in the DOM.
     video.style.position = "fixed";
     video.style.left = "-99999px";
     video.style.top = "0";
@@ -721,14 +720,10 @@ function captureVideoFrame(source, timeSeconds) {
     const waitForDecodedFrame = () => {
       return new Promise((res) => {
         if ("requestVideoFrameCallback" in video) {
-          video.requestVideoFrameCallback(() => {
-            setTimeout(res, 80);
-          });
+          video.requestVideoFrameCallback(() => setTimeout(res, 80));
         } else {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setTimeout(res, 120);
-            });
+            requestAnimationFrame(() => setTimeout(res, 120));
           });
         }
       });
@@ -780,7 +775,7 @@ function captureVideoFrame(source, timeSeconds) {
 
         if (safeTime < 0) safeTime = 0;
 
-        // Avoid frame 0 because many phone videos start with a black frame.
+        // Avoid frame 0 because many phone videos start black.
         if (safeTime === 0 && duration > 0.3) safeTime = 0.2;
 
         if (duration > 0 && safeTime >= duration) {
@@ -1502,7 +1497,9 @@ function openUploadModalForBox(box) {
   q("#aUpPaintFields").style.display = kind !== "fotografia" && !videoMode ? "" : "none";
   q("#aUpPublishedDateWrap").style.display = videoMode ? "" : "none";
   q("#aUpYearWrap").style.display = videoMode ? "none" : "";
-  q("#aUpVideoThumbFields").style.display = videoMode ? "" : "none";
+
+  // This is the important part: bring the selector back for videos.
+  q("#aUpVideoThumbFields").style.display = videoMode ? "block" : "none";
 
   if (kind === "fotografia") {
     q("#aUpModalTitle").textContent = "Adicionar nova fotografia";
@@ -1513,11 +1510,11 @@ function openUploadModalForBox(box) {
     q("#aUpModalTitle").textContent = "Adicionar novo vídeo";
     q("#aUpFileLabel").textContent = "Vídeo";
     q("#aUpFile").accept = "video/mp4,video/webm,video/quicktime,.mov,.m4v";
+    setText("aThumbHint", "Escolhe um vídeo para ativar o seletor da thumbnail.");
   } else {
     q("#aUpModalTitle").textContent = "Adicionar nova obra";
     q("#aUpFileLabel").textContent = "Imagem";
     q("#aUpFile").accept = "image/*";
-
     q("#aUpTechnique").value = "";
     q("#aUpDimensions").value = "";
     q("#aUpType").value = kind;
