@@ -64,12 +64,8 @@
 
     .admin-actions {
       margin-top: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
     }
 
-    .admin-actions button,
     .admin-actions a {
       display: block;
       width: 100%;
@@ -80,19 +76,6 @@
       font-weight: 700;
       cursor: pointer;
       box-sizing: border-box;
-    }
-
-    .admin-actions button {
-      background: navy;
-      color: white;
-    }
-
-    .admin-actions button.secondary {
-      background: rgba(0, 0, 0, 0.08);
-      color: navy;
-    }
-
-    .admin-actions a {
       background: rgba(0, 0, 0, 0.06);
       color: navy !important;
     }
@@ -102,23 +85,17 @@
 <body>
   <div class="admin-login-wrap">
     <h1>Modo Admin</h1>
-    <p>Faz login com a conta autorizada.</p>
+    <p>Escolhe a conta Google autorizada para entrar.</p>
 
     <div id="gbtn"></div>
     <div id="status" class="status"></div>
 
     <div class="admin-actions">
-      <button id="switchGoogleAccount" class="secondary" type="button">
-        Escolher outra conta Google
-      </button>
-
-      <a href="/index.html">
-        Voltar ao site
-      </a>
+      <a href="/index.html">Voltar ao site</a>
     </div>
 
     <div class="small">
-      Se o Google entrar automaticamente com a conta errada, usa “Escolher outra conta Google”.
+      Por segurança, esta página pede sempre para escolher uma conta Google.
     </div>
   </div>
 
@@ -131,7 +108,6 @@
 
     const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__;
     const statusEl = document.getElementById("status");
-    const switchBtn = document.getElementById("switchGoogleAccount");
     const gbtn = document.getElementById("gbtn");
 
     function setStatus(msg) {
@@ -177,6 +153,40 @@
       return u.pathname + u.search + u.hash;
     }
 
+    function forceAccountChooserOnce() {
+      const url = new URL(window.location.href);
+
+      if (url.searchParams.get("account_chooser_done") === "1") {
+        return false;
+      }
+
+      clearAdminSession();
+
+      url.searchParams.set("account_chooser_done", "1");
+
+      const chooserUrl =
+        "https://accounts.google.com/AccountChooser?continue=" +
+        encodeURIComponent(url.toString());
+
+      window.location.replace(chooserUrl);
+      return true;
+    }
+
+    function cleanChooserMarkerFromUrl() {
+      const url = new URL(window.location.href);
+
+      if (!url.searchParams.has("account_chooser_done")) return;
+
+      url.searchParams.delete("account_chooser_done");
+
+      const cleanUrl =
+        url.pathname +
+        (url.searchParams.toString() ? "?" + url.searchParams.toString() : "") +
+        url.hash;
+
+      window.history.replaceState({}, "", cleanUrl);
+    }
+
     function renderGoogleButton() {
       gbtn.innerHTML = "";
 
@@ -186,6 +196,7 @@
         type: "standard",
         text: "signin_with",
         shape: "rectangular",
+        use_fedcm_for_button: false,
       });
     }
 
@@ -211,6 +222,9 @@
     }
 
     async function init() {
+      const redirected = forceAccountChooserOnce();
+      if (redirected) return;
+
       try {
         await waitForGsi();
       } catch (e) {
@@ -219,6 +233,7 @@
       }
 
       disableGoogleAutoSelect();
+      cleanChooserMarkerFromUrl();
 
       if (!GOOGLE_CLIENT_ID) {
         setStatus("Erro: __GOOGLE_CLIENT_ID__ não definido.");
@@ -236,23 +251,6 @@
       });
 
       renderGoogleButton();
-
-      switchBtn.addEventListener("click", () => {
-        clearAdminSession();
-        disableGoogleAutoSelect();
-
-        setStatus("Sessão anterior removida. Escolhe a conta Google.");
-
-        try {
-          window.google.accounts.id.cancel();
-        } catch {}
-
-        renderGoogleButton();
-
-        try {
-          window.google.accounts.id.prompt();
-        } catch {}
-      });
     }
 
     init();
