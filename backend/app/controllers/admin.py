@@ -265,8 +265,8 @@ def upload_video(
     db: Session = Depends(get_db),
 
     title: Optional[str] = Form(None),
-    year: Optional[int] = Form(None),
     col: int = Form(1),
+    published_date: Optional[date] = Form(None),
     thumbnail_time: Optional[float] = Form(None),
 
     file: UploadFile = File(...),
@@ -295,7 +295,7 @@ def upload_video(
 
     video = Video(
         title=title.strip() if title else None,
-        year=year,
+        published_date=published_date,
         col=col,
         col_order=next_order,
         file_path=video_path,
@@ -310,9 +310,9 @@ def upload_video(
     return {
         "id": str(video.id),
         "title": video.title,
-        "year": video.year,
         "col": int(video.col),
         "col_order": int(video.col_order),
+        "published_date": video.published_date.isoformat() if video.published_date else None,  # ✅
         "url": "/" + video.file_path,
         "thumbnail_url": "/" + video.thumbnail_path,
         "thumbnail_time": video.thumbnail_time,
