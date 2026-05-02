@@ -8,6 +8,7 @@
 // - Keep admin=1 across navbar links
 // - Auto-scroll while dragging
 // - Video upload supports selecting a thumbnail moment
+// - Fixed thumbnail capture to avoid black previews on Safari/phone videos
 
 import { fetchJson, apiBase, resolveUrl } from "./api_client.js";
 import { renderBox } from "./gallery_modal.js";
@@ -26,9 +27,6 @@ let dragOriginBoxId = null;
 let uploadThumbBlob = null;
 let uploadThumbPreviewUrl = null;
 let uploadVideoPreviewUrl = null;
-
-let editThumbBlob = null;
-let editThumbPreviewUrl = null;
 
 const urlNow = new URL(window.location.href);
 const isAdminUrl = urlNow.searchParams.get("admin") === "1";
@@ -197,24 +195,6 @@ function ensureModals() {
         <div id="aEditVideoFields" style="display:none;">
           <label>Data de publicação</label>
           <input id="aEditPublishedDate" type="date" />
-
-          <label>Nova thumbnail</label>
-          <div class="row">
-            <div>
-              <input id="aEditThumbTime" type="number" min="0" step="0.1" value="0" />
-            </div>
-            <div>
-              <input id="aEditThumbRange" type="range" min="0" max="0" step="0.1" value="0" disabled />
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="secondary" id="aBtnEditUseCurrentVideoTime" type="button">Usar momento atual</button>
-            <button class="secondary" id="aBtnEditPreviewThumb" type="button">Pré-visualizar nova thumbnail</button>
-          </div>
-
-          <img id="aEditThumbPreview" class="a-preview" alt="Nova thumbnail" style="display:none; margin-top:12px;" />
-          <div class="small" id="aEditThumbHint"></div>
         </div>
 
         <div id="aEditPaintFields" style="display:none;">
@@ -255,10 +235,6 @@ function ensureModals() {
 
     q("#aBtnSaveEdit").addEventListener("click", saveEdit);
     q("#aBtnDeleteEdit").addEventListener("click", deleteFromEdit);
-    q("#aEditThumbTime").addEventListener("input", syncEditThumbNumberToRange);
-    q("#aEditThumbRange").addEventListener("input", syncEditThumbRangeToNumber);
-    q("#aBtnEditUseCurrentVideoTime").addEventListener("click", useCurrentEditVideoTimeForThumbnail);
-    q("#aBtnEditPreviewThumb").addEventListener("click", previewEditVideoThumbnail);
   }
 
   // Upload modal
@@ -474,101 +450,6 @@ function resetUploadVideoTools() {
   setText("aThumbHint", "");
 }
 
-function clearEditThumbnailOnly() {
-  editThumbBlob = null;
-
-  if (editThumbPreviewUrl) {
-    URL.revokeObjectURL(editThumbPreviewUrl);
-    editThumbPreviewUrl = null;
-  }
-
-  const preview = q("#aEditThumbPreview");
-  if (preview) {
-    preview.removeAttribute("src");
-    preview.style.display = "none";
-  }
-}
-
-function clampEditThumbTime(value) {
-  const range = q("#aEditThumbRange");
-  const max = Number(range?.max || 0);
-
-  let n = Number(value);
-  if (!Number.isFinite(n)) n = 0;
-  if (n < 0) n = 0;
-  if (max > 0 && n > max) n = max;
-
-  return Number(n.toFixed(1));
-}
-
-function syncEditThumbNumberToRange() {
-  const time = q("#aEditThumbTime");
-  const range = q("#aEditThumbRange");
-
-  const t = clampEditThumbTime(time.value);
-  time.value = String(t);
-  if (range) range.value = String(t);
-
-  clearEditThumbnailOnly();
-}
-
-function syncEditThumbRangeToNumber() {
-  const time = q("#aEditThumbTime");
-  const range = q("#aEditThumbRange");
-
-  const t = clampEditThumbTime(range.value);
-  range.value = String(t);
-  if (time) time.value = String(t);
-
-  clearEditThumbnailOnly();
-}
-
-async function useCurrentEditVideoTimeForThumbnail() {
-  const video = q("#aEditVideoPreview");
-
-  if (!video || !video.src) {
-    setText("aEditStatus", "Não há vídeo carregado.");
-    return;
-  }
-
-  const t = clampEditThumbTime(video.currentTime || 0);
-  q("#aEditThumbTime").value = String(t);
-  q("#aEditThumbRange").value = String(t);
-
-  await previewEditVideoThumbnail();
-}
-
-async function previewEditVideoThumbnail() {
-  const video = q("#aEditVideoPreview");
-  const time = clampEditThumbTime(q("#aEditThumbTime")?.value || 0);
-
-  if (!video || !video.src) {
-    setText("aEditStatus", "Não há vídeo carregado.");
-    return;
-  }
-
-  try {
-    setText("aEditStatus", "A gerar nova thumbnail...");
-
-    editThumbBlob = await captureVideoFrame(video.currentSrc || video.src, time);
-
-    if (editThumbPreviewUrl) {
-      URL.revokeObjectURL(editThumbPreviewUrl);
-    }
-
-    editThumbPreviewUrl = URL.createObjectURL(editThumbBlob);
-
-    const preview = q("#aEditThumbPreview");
-    preview.src = editThumbPreviewUrl;
-    preview.style.display = "block";
-
-    setText("aEditStatus", "Nova thumbnail pronta");
-  } catch (e) {
-    setText("aEditStatus", `Erro: ${e.message}`);
-  }
-}
-
-
 function handleUploadFileChange() {
   const kind = q("#aUpKind")?.value || "";
   const file = q("#aUpFile")?.files?.[0];
@@ -576,6 +457,11 @@ function handleUploadFileChange() {
   resetUploadVideoTools();
 
   if (!isVideoKind(kind)) return;
+
+  // Keep the working old behavior: the selector remains visible in video mode.
+  const thumbFields = q("#aUpVideoThumbFields");
+  if (thumbFields) thumbFields.style.display = "";
+
   if (!file) return;
 
   const video = q("#aUpVideoPreview");
@@ -674,6 +560,7 @@ function captureVideoFrame(source, timeSeconds) {
     video.playsInline = true;
     video.crossOrigin = "anonymous";
 
+    // Safari is more reliable if the temporary video is actually in the DOM.
     video.style.position = "fixed";
     video.style.left = "-99999px";
     video.style.top = "0";
@@ -720,10 +607,14 @@ function captureVideoFrame(source, timeSeconds) {
     const waitForDecodedFrame = () => {
       return new Promise((res) => {
         if ("requestVideoFrameCallback" in video) {
-          video.requestVideoFrameCallback(() => setTimeout(res, 80));
+          video.requestVideoFrameCallback(() => {
+            setTimeout(res, 80);
+          });
         } else {
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => setTimeout(res, 120));
+            requestAnimationFrame(() => {
+              setTimeout(res, 120);
+            });
           });
         }
       });
@@ -775,7 +666,7 @@ function captureVideoFrame(source, timeSeconds) {
 
         if (safeTime < 0) safeTime = 0;
 
-        // Avoid frame 0 because many phone videos start black.
+        // Avoid exact frame 0 because many phone videos start black.
         if (safeTime === 0 && duration > 0.3) safeTime = 0.2;
 
         if (duration > 0 && safeTime >= duration) {
@@ -1292,31 +1183,12 @@ async function openEditModal(boxId, itemId) {
 
     q("#aEditCategory").value = item.category || box.dataset.category || "tema_livre";
   } else if (isVideoKind(kind)) {
-      clearEditThumbnailOnly();
+    yearWrap.style.display = "none";
+    catWrap.style.display = "none";
+    paintWrap.style.display = "none";
+    videoWrap.style.display = "";
 
-      imgPreview.style.display = "none";
-      imgPreview.removeAttribute("src");
-
-      videoPreview.style.display = "block";
-      videoPreview.crossOrigin = "anonymous";
-      videoPreview.src = resolveUrl(item.url);
-
-      q("#aEditThumbTime").value = String(item.thumbnail_time ?? 0);
-      q("#aEditThumbRange").value = String(item.thumbnail_time ?? 0);
-      q("#aEditThumbRange").disabled = true;
-      q("#aEditThumbRange").max = "0";
-      q("#aEditThumbTime").removeAttribute("max");
-
-      videoPreview.onloadedmetadata = () => {
-        const duration = Number.isFinite(videoPreview.duration) ? videoPreview.duration : 0;
-        const max = Math.max(0, duration).toFixed(1);
-
-        q("#aEditThumbRange").max = max;
-        q("#aEditThumbRange").disabled = false;
-        q("#aEditThumbTime").max = max;
-
-        setText("aEditThumbHint", `Duração: ${max}s. Escolhe outro momento para trocar a thumbnail.`);
-      };
+    q("#aEditPublishedDate").value = item.published_date || "";
   } else {
     yearWrap.style.display = "";
     catWrap.style.display = "none";
@@ -1370,28 +1242,6 @@ async function saveEdit() {
         headers: authHeaders(true),
         body: JSON.stringify(payload),
       });
-
-      if (editThumbBlob) {
-        const fd = new FormData();
-        const thumbTime = clampEditThumbTime(q("#aEditThumbTime").value || 0);
-
-        fd.append("thumbnail_time", String(thumbTime));
-        fd.append("thumbnail", editThumbBlob, "thumbnail.jpg");
-
-        const res = await fetch(`${apiBase()}/api/admin/videos/${id}/thumbnail`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${idToken}` },
-          body: fd,
-        });
-
-        const ct = res.headers.get("content-type") || "";
-        const data = ct.includes("application/json") ? await res.json() : await res.text();
-
-        if (!res.ok) {
-          const msg = data?.detail ? data.detail : typeof data === "string" ? data : `HTTP ${res.status}`;
-          throw new Error(msg);
-        }
-      }
     } else {
       const payload = {
         title: q("#aEditTitle").value || null,
@@ -1498,8 +1348,8 @@ function openUploadModalForBox(box) {
   q("#aUpPublishedDateWrap").style.display = videoMode ? "" : "none";
   q("#aUpYearWrap").style.display = videoMode ? "none" : "";
 
-  // This is the important part: bring the selector back for videos.
-  q("#aUpVideoThumbFields").style.display = videoMode ? "block" : "none";
+  // Important: this is the old working behavior that shows the thumbnail selector.
+  q("#aUpVideoThumbFields").style.display = videoMode ? "" : "none";
 
   if (kind === "fotografia") {
     q("#aUpModalTitle").textContent = "Adicionar nova fotografia";
@@ -1515,6 +1365,7 @@ function openUploadModalForBox(box) {
     q("#aUpModalTitle").textContent = "Adicionar nova obra";
     q("#aUpFileLabel").textContent = "Imagem";
     q("#aUpFile").accept = "image/*";
+
     q("#aUpTechnique").value = "";
     q("#aUpDimensions").value = "";
     q("#aUpType").value = kind;
