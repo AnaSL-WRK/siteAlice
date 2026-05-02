@@ -74,7 +74,6 @@
       border: 0;
       text-decoration: none !important;
       font-weight: 700;
-      cursor: pointer;
       box-sizing: border-box;
       background: rgba(0, 0, 0, 0.06);
       color: navy !important;
@@ -92,10 +91,6 @@
 
     <div class="admin-actions">
       <a href="/index.html">Voltar ao site</a>
-    </div>
-
-    <div class="small">
-      Por segurança, esta página pede sempre para escolher uma conta Google.
     </div>
   </div>
 
@@ -153,40 +148,6 @@
       return u.pathname + u.search + u.hash;
     }
 
-    function forceAccountChooserOnce() {
-      const url = new URL(window.location.href);
-
-      if (url.searchParams.get("account_chooser_done") === "1") {
-        return false;
-      }
-
-      clearAdminSession();
-
-      url.searchParams.set("account_chooser_done", "1");
-
-      const chooserUrl =
-        "https://accounts.google.com/AccountChooser?continue=" +
-        encodeURIComponent(url.toString());
-
-      window.location.replace(chooserUrl);
-      return true;
-    }
-
-    function cleanChooserMarkerFromUrl() {
-      const url = new URL(window.location.href);
-
-      if (!url.searchParams.has("account_chooser_done")) return;
-
-      url.searchParams.delete("account_chooser_done");
-
-      const cleanUrl =
-        url.pathname +
-        (url.searchParams.toString() ? "?" + url.searchParams.toString() : "") +
-        url.hash;
-
-      window.history.replaceState({}, "", cleanUrl);
-    }
-
     function renderGoogleButton() {
       gbtn.innerHTML = "";
 
@@ -222,8 +183,7 @@
     }
 
     async function init() {
-      const redirected = forceAccountChooserOnce();
-      if (redirected) return;
+      clearAdminSession();
 
       try {
         await waitForGsi();
@@ -233,7 +193,6 @@
       }
 
       disableGoogleAutoSelect();
-      cleanChooserMarkerFromUrl();
 
       if (!GOOGLE_CLIENT_ID) {
         setStatus("Erro: __GOOGLE_CLIENT_ID__ não definido.");
