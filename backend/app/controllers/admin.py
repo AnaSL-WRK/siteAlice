@@ -266,8 +266,8 @@ def upload_video(
 
     title: Optional[str] = Form(None),
     col: int = Form(1),
-    published_date: Optional[date] = Form(None),
     thumbnail_time: Optional[float] = Form(None),
+    published_date: Optional[date] = Form(None),
 
     file: UploadFile = File(...),
     thumbnail: UploadFile = File(...),
