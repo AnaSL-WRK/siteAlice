@@ -10,14 +10,16 @@ function createDreamColumn() {
 function linesToOverlayHtml(lines) {
   return lines
     .filter(Boolean)
-    .map(l => String(l).trim())
-    .filter(l => l.length > 0)
+    .map((l) => String(l).trim())
+    .filter((l) => l.length > 0)
     .join('<br>');
 }
 
 function formatDatePt(value) {
   if (!value) return '';
 
+  // Backend normally sends YYYY-MM-DD.
+  // Adding T00:00:00 avoids timezone shifts when formatting.
   const d = new Date(`${value}T00:00:00`);
   if (Number.isNaN(d.getTime())) return String(value);
 
@@ -33,25 +35,32 @@ function buildOverlayText(item, overlayMode) {
 
   if (overlayMode === 'video') {
     const lines = [];
+
     if (item.title) lines.push(item.title);
     if (item.published_date) lines.push(formatDatePt(item.published_date));
     if (item.year) lines.push(item.year);
+
     return linesToOverlayHtml(lines);
   }
 
   if (overlayMode === 'mista') {
     const lines = [];
+
     if (item.title) lines.push(item.title);
     if (item.year) lines.push(item.year);
     if (item.dimensions) lines.push(item.dimensions);
+
     return linesToOverlayHtml(lines);
   }
 
+  // Default: pinturas
   const lines = [];
+
   if (item.title) lines.push(item.title);
   if (item.year) lines.push(item.year);
   if (item.technique) lines.push(item.technique);
   if (item.dimensions) lines.push(item.dimensions);
+
   return linesToOverlayHtml(lines);
 }
 
@@ -63,24 +72,32 @@ function createImageNode(item, overlayMode) {
   const isVideo = item.media_type === 'video' || overlayMode === 'video';
   container.dataset.media = isVideo ? 'video' : 'image';
 
+  const overlayHtml = buildOverlayText(item, overlayMode);
+
+  // Important: keep the modal description independent from the visual overlay.
+  // This makes title/date appear in the modal even if the overlay is hidden by CSS.
+  container.dataset.descHtml = overlayHtml || '';
+
   if (isVideo) {
-    container.dataset.videoSrc = resolveUrl(item.url);
+    const videoUrl = resolveUrl(item.url);
+    container.dataset.videoSrc = videoUrl;
 
     const video = document.createElement('video');
-    video.src = resolveUrl(item.url);
+    video.src = videoUrl;
     video.muted = true;
     video.playsInline = true;
     video.preload = 'metadata';
     video.className = 'video-thumb';
     video.setAttribute('aria-label', item.title || 'Vídeo');
 
-    // Best option: use a generated thumbnail image from the backend
+    // Best option: use generated thumbnail image from backend.
     if (item.thumbnail_url) {
-      video.poster = resolveUrl(item.thumbnail_url);
-      container.dataset.thumbnailSrc = resolveUrl(item.thumbnail_url);
+      const thumbUrl = resolveUrl(item.thumbnail_url);
+      video.poster = thumbUrl;
+      container.dataset.thumbnailSrc = thumbUrl;
     }
 
-    // Fallback: if no thumbnail image exists, seek to the chosen moment
+    // Fallback: if no thumbnail image exists, seek to the chosen moment.
     video.addEventListener('loadedmetadata', () => {
       if (item.thumbnail_url) return;
 
@@ -90,7 +107,7 @@ function createImageNode(item, overlayMode) {
       try {
         video.currentTime = Math.min(t, video.duration || t);
       } catch {
-        // ignore browsers that block seeking before enough metadata is ready
+        // Ignore browsers that block seeking before enough metadata is ready.
       }
     });
 
@@ -107,7 +124,6 @@ function createImageNode(item, overlayMode) {
     container.appendChild(img);
   }
 
-  const overlayHtml = buildOverlayText(item, overlayMode);
   if (overlayHtml) {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -169,6 +185,8 @@ function openImageModal({ src, descHtml }) {
   modalContent.removeAttribute('style');
 
   modalVideo.style.display = 'none';
+  modalVideo.removeAttribute('src');
+
   modalImg.removeAttribute('style');
   modalImg.style.display = 'block';
 
@@ -206,7 +224,7 @@ function openVideoModal({ src, descHtml }) {
   modal.style.display = 'flex';
 
   modalVideo.play().catch(() => {
-    // se o browser bloquear autoplay, o utilizador pode carregar no play
+    // If autoplay is blocked, the user can press play manually.
   });
 }
 
@@ -235,14 +253,16 @@ function installUniversalModal() {
     if (e.key === 'Escape') closeModal();
   });
 
+  // Event delegation: works for dynamically rendered gallery items.
   document.addEventListener('click', (e) => {
     const container = e.target.closest('.image-container');
     if (!container) return;
 
     if (container.classList.contains('add-tile')) return;
 
-    const overlayP = container.querySelector('.overlay p');
-    const descHtml = overlayP ? overlayP.innerHTML : '';
+    // Important: use dataset description, not only overlay <p>.
+    // This keeps title/date in the modal even when overlay is hidden or changed.
+    const descHtml = container.dataset.descHtml || '';
 
     if (container.dataset.media === 'video') {
       const src = container.dataset.videoSrc || container.querySelector('video')?.src;
