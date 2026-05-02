@@ -310,9 +310,9 @@ def upload_video(
     return {
         "id": str(video.id),
         "title": video.title,
+        "published_date": video.published_date.isoformat() if video.published_date else None, 
         "col": int(video.col),
         "col_order": int(video.col_order),
-        "published_date": video.published_date.isoformat() if video.published_date else None,  # ✅
         "url": "/" + video.file_path,
         "thumbnail_url": "/" + video.thumbnail_path,
         "thumbnail_time": video.thumbnail_time,
