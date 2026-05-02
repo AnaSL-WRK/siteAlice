@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Alice nas Artes — Admin</title>
+  <title>Alice nas Artes - Admin</title>
 
   <link rel="stylesheet" href="/src/styles/galery.css">
   <link rel="stylesheet" href="/src/styles/admin_overlay.css">
@@ -16,7 +16,10 @@
   </script>
 
   <style>
-    body { background: #f7f7f7; }
+    body {
+      background: #f7f7f7;
+    }
+
     .admin-login-wrap {
       max-width: 520px;
       margin: 80px auto;
@@ -24,11 +27,75 @@
       padding: 28px;
       border-radius: 18px;
       box-shadow: 0 10px 30px rgba(0,0,0,.12);
+      text-align: center;
     }
-    .admin-login-wrap h1 { font-size: 28px; margin: 0 0 10px; }
-    .admin-login-wrap p { margin: 0 0 16px; opacity: .85; }
-    .status { margin-top: 12px; font-size: 14px; color: navy; }
-    .small { font-size: 12px; opacity: .7; margin-top: 12px; }
+
+    .admin-login-wrap h1 {
+      font-size: 28px;
+      margin: 0 0 10px;
+      color: navy;
+    }
+
+    .admin-login-wrap p {
+      margin: 0 0 16px;
+      opacity: .85;
+      color: navy;
+    }
+
+    #gbtn {
+      display: flex;
+      justify-content: center;
+      margin: 16px 0;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-size: 14px;
+      color: navy;
+      min-height: 20px;
+    }
+
+    .small {
+      font-size: 12px;
+      opacity: .7;
+      margin-top: 12px;
+      color: navy;
+    }
+
+    .admin-actions {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .admin-actions button,
+    .admin-actions a {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 0;
+      text-decoration: none !important;
+      font-weight: 700;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    .admin-actions button {
+      background: navy;
+      color: white;
+    }
+
+    .admin-actions button.secondary {
+      background: rgba(0, 0, 0, 0.08);
+      color: navy;
+    }
+
+    .admin-actions a {
+      background: rgba(0, 0, 0, 0.06);
+      color: navy !important;
+    }
   </style>
 </head>
 
@@ -40,7 +107,19 @@
     <div id="gbtn"></div>
     <div id="status" class="status"></div>
 
-    
+    <div class="admin-actions">
+      <button id="switchGoogleAccount" class="secondary" type="button">
+        Escolher outra conta Google
+      </button>
+
+      <a href="/index.html">
+        Voltar ao site
+      </a>
+    </div>
+
+    <div class="small">
+      Se o Google entrar automaticamente com a conta errada, usa “Escolher outra conta Google”.
+    </div>
   </div>
 
   <script type="module">
@@ -52,17 +131,38 @@
 
     const GOOGLE_CLIENT_ID = window.__GOOGLE_CLIENT_ID__;
     const statusEl = document.getElementById("status");
+    const switchBtn = document.getElementById("switchGoogleAccount");
+    const gbtn = document.getElementById("gbtn");
 
-    function setStatus(msg) { statusEl.textContent = msg || ""; }
+    function setStatus(msg) {
+      statusEl.textContent = msg || "";
+    }
+
+    function clearAdminSession() {
+      STORE.removeItem(SS_TOKEN_KEY);
+      STORE.removeItem(SS_ON_KEY);
+    }
+
+    function disableGoogleAutoSelect() {
+      try {
+        window.google?.accounts?.id?.disableAutoSelect();
+      } catch {}
+    }
 
     function waitForGsi(timeoutMs = 10000) {
       return new Promise((resolve, reject) => {
         const t0 = Date.now();
+
         const tick = () => {
           if (window.google?.accounts?.id) return resolve();
-          if (Date.now() - t0 > timeoutMs) return reject(new Error("Google login não carregou."));
+
+          if (Date.now() - t0 > timeoutMs) {
+            return reject(new Error("Google login não carregou."));
+          }
+
           setTimeout(tick, 60);
         };
+
         tick();
       });
     }
@@ -70,9 +170,44 @@
     function buildNextUrl() {
       const params = new URLSearchParams(location.search);
       const nextRaw = params.get("next") || "/index.html";
+
       const u = new URL(nextRaw, location.origin);
       u.searchParams.set("admin", "1");
+
       return u.pathname + u.search + u.hash;
+    }
+
+    function renderGoogleButton() {
+      gbtn.innerHTML = "";
+
+      window.google.accounts.id.renderButton(gbtn, {
+        theme: "outline",
+        size: "large",
+        type: "standard",
+        text: "signin_with",
+        shape: "rectangular",
+      });
+    }
+
+    async function validateAndEnter(token) {
+      setStatus("A validar permissões...");
+
+      try {
+        await fetchJson("/api/admin/me", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        STORE.setItem(SS_TOKEN_KEY, token);
+        STORE.setItem(SS_ON_KEY, "1");
+
+        setStatus("Autenticada ✅ A redirecionar...");
+        location.href = buildNextUrl();
+      } catch (e) {
+        clearAdminSession();
+        disableGoogleAutoSelect();
+        setStatus("Sem permissões: " + e.message);
+      }
     }
 
     async function init() {
@@ -83,6 +218,8 @@
         return;
       }
 
+      disableGoogleAutoSelect();
+
       if (!GOOGLE_CLIENT_ID) {
         setStatus("Erro: __GOOGLE_CLIENT_ID__ não definido.");
         return;
@@ -91,32 +228,30 @@
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         auto_select: false,
+        cancel_on_tap_outside: false,
         callback: async (resp) => {
           const token = resp.credential;
-          setStatus("A validar permissões...");
-
-          try {
-            await fetchJson("/api/admin/me", {
-              method: "GET",
-              headers: { Authorization: `Bearer ${token}` },
-            });
-
-            STORE.setItem(SS_TOKEN_KEY, token);
-            STORE.setItem(SS_ON_KEY, "1");
-
-            setStatus("Autenticada ✅ A redirecionar...");
-            location.href = buildNextUrl();
-          } catch (e) {
-            STORE.removeItem(SS_TOKEN_KEY);
-            STORE.removeItem(SS_ON_KEY);
-            setStatus("Sem permissões: " + e.message);
-          }
+          await validateAndEnter(token);
         },
       });
 
-      window.google.accounts.id.renderButton(document.getElementById("gbtn"), {
-        theme: "outline",
-        size: "large",
+      renderGoogleButton();
+
+      switchBtn.addEventListener("click", () => {
+        clearAdminSession();
+        disableGoogleAutoSelect();
+
+        setStatus("Sessão anterior removida. Escolhe a conta Google.");
+
+        try {
+          window.google.accounts.id.cancel();
+        } catch {}
+
+        renderGoogleButton();
+
+        try {
+          window.google.accounts.id.prompt();
+        } catch {}
       });
     }
 
