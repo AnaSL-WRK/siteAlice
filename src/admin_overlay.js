@@ -770,16 +770,22 @@ function captureVideoFrame(source, timeSeconds) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, w, h);
 
-      const blobTimeout = setTimeout(() => fail("Timeout ao criar thumbnail."), 5000);
+      console.log("[thumbnail] canvas", w, "x", h, "(original:", srcW, "x", srcH, ") — a chamar toBlob...");
+      const blobTimeout = setTimeout(() => {
+        console.error("[thumbnail] toBlob() não respondeu em 5s");
+        fail("Timeout ao criar thumbnail.");
+      }, 5000);
 
       canvas.toBlob(
         (blob) => {
           clearTimeout(blobTimeout);
           if (!blob) {
+            console.error("[thumbnail] toBlob() devolveu null");
             fail("Não foi possível criar a thumbnail.");
             return;
           }
 
+          console.log("[thumbnail] thumbnail gerada:", Math.round(blob.size / 1024), "KB");
           finished = true;
           cleanup();
           resolve(blob);
@@ -789,14 +795,19 @@ function captureVideoFrame(source, timeSeconds) {
       );
     };
 
-    video.onerror = () => fail("Erro ao processar o vídeo.");
+    video.onerror = (e) => {
+      console.error("[thumbnail] video.onerror", e);
+      fail("Erro ao processar o vídeo.");
+    };
 
     (async () => {
       try {
+        console.log("[thumbnail] a carregar vídeo...");
         video.src = src;
         video.load();
 
         await waitForEvent("loadedmetadata");
+        console.log("[thumbnail] loadedmetadata ok — duração:", video.duration, "s | resolução:", video.videoWidth, "x", video.videoHeight);
 
         const duration = Number.isFinite(video.duration) ? video.duration : 0;
         let safeTime = Number(timeSeconds) || 0;
@@ -810,13 +821,18 @@ function captureVideoFrame(source, timeSeconds) {
           safeTime = Math.max(0, duration - 0.2);
         }
 
+        console.log("[thumbnail] a procurar frame em", safeTime, "s...");
         video.currentTime = safeTime;
 
         await waitForEvent("seeked");
+        console.log("[thumbnail] seeked ok — a aguardar frame decodificado...");
+
         await waitForDecodedFrame();
+        console.log("[thumbnail] frame pronto — a desenhar canvas...");
 
         draw();
       } catch (e) {
+        console.error("[thumbnail] erro:", e.message);
         fail(e.message || "Erro ao gerar thumbnail.");
       }
     })();
