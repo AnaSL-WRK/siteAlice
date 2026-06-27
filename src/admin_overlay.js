@@ -141,6 +141,7 @@ function ensureToolbar() {
       <span class="status" id="adminToolbarStatus"></span>
     </div>
     <div class="right">
+      <button id="adminBtnSortByDate" class="secondary" type="button" style="display:none;">Ordenar por data</button>
       <button id="adminBtnSave" class="primary" type="button" disabled>Guardar</button>
       <button id="adminBtnCancel" class="secondary" type="button">Cancelar</button>
       <button id="adminBtnLogout" class="danger" type="button">Sair</button>
@@ -152,6 +153,7 @@ function ensureToolbar() {
   q("#adminBtnSave").addEventListener("click", saveAll);
   q("#adminBtnCancel").addEventListener("click", cancelAll);
   q("#adminBtnLogout").addEventListener("click", logout);
+  q("#adminBtnSortByDate").addEventListener("click", sortVideosByDate);
 }
 
 let __modalCloseHandlersInstalled = false;
@@ -1129,6 +1131,8 @@ async function turnOnAdmin() {
 
   keepRewritingNavForAWhile();
 
+  updateSortByDateBtn();
+
   try {
     await refreshCacheAll();
     enhanceAllBoxes();
@@ -1151,6 +1155,63 @@ async function turnOffAdmin() {
   for (const el of qa(".image-container")) {
     el.draggable = false;
     delete el.dataset.adminDraggable;
+  }
+}
+
+/* ----------------- Sort videos by date ----------------- */
+function updateSortByDateBtn() {
+  const btn = q("#adminBtnSortByDate");
+  if (!btn) return;
+  const hasVideos = getBoxes().some((b) => isVideoKind(b.dataset.kind));
+  btn.style.display = hasVideos ? "" : "none";
+}
+
+async function sortVideosByDate() {
+  try {
+    ensureLoggedIn();
+  } catch {
+    redirectToCentralLogin();
+    return;
+  }
+
+  setText("adminToolbarStatus", "A ordenar por data...");
+
+  const allVideos = [];
+  for (const box of getBoxes()) {
+    if (!isVideoKind(box.dataset.kind)) continue;
+    const cached = boxCache.get(box.id);
+    if (!cached) continue;
+    for (const item of cached.values()) {
+      allVideos.push(item);
+    }
+  }
+
+  // Sort newest first; videos without a date go to the end
+  allVideos.sort((a, b) => {
+    if (!a.published_date && !b.published_date) return 0;
+    if (!a.published_date) return 1;
+    if (!b.published_date) return -1;
+    return b.published_date.localeCompare(a.published_date);
+  });
+
+  // Distribute across 3 columns in round-robin so reading order follows date
+  const items = allVideos.map((v, i) => ({
+    id: v.id,
+    col: (i % 3) + 1,
+    col_order: Math.floor(i / 3) + 1,
+  }));
+
+  try {
+    await fetchJson("/api/admin/reorder/videos", {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({ items }),
+    });
+
+    setText("adminToolbarStatus", "Ordenado por data.");
+    await refreshAllBoxes();
+  } catch (e) {
+    setText("adminToolbarStatus", `Erro: ${e.message}`);
   }
 }
 

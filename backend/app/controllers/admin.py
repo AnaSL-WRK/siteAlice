@@ -275,9 +275,21 @@ def upload_video(
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
 
-    q = db.query(func.max(Video.col_order)).filter(Video.col == col)
-    max_order = q.scalar() or 0
-    next_order = int(max_order) + 1
+    if published_date:
+        # Count videos in same col with a more recent published_date to find insertion position
+        newer_count = db.query(func.count(Video.id)).filter(
+            Video.col == col,
+            Video.published_date > published_date,
+        ).scalar() or 0
+        next_order = int(newer_count) + 1
+        # Shift down everything at or after the insertion position
+        db.query(Video).filter(
+            Video.col == col,
+            Video.col_order >= next_order,
+        ).update({Video.col_order: Video.col_order + 1}, synchronize_session=False)
+    else:
+        max_order = db.query(func.max(Video.col_order)).filter(Video.col == col).scalar() or 0
+        next_order = int(max_order) + 1
 
     video_path = save_upload_to_disk(
         file,
