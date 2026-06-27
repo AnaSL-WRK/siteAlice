@@ -731,11 +731,14 @@ function captureVideoFrame(source, timeSeconds) {
 
     const waitForDecodedFrame = () => {
       return new Promise((res) => {
+        const fallback = setTimeout(res, 600);
         if ("requestVideoFrameCallback" in video) {
           video.requestVideoFrameCallback(() => {
+            clearTimeout(fallback);
             setTimeout(res, 80);
           });
         } else {
+          clearTimeout(fallback);
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               setTimeout(res, 120);
