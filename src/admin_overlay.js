@@ -749,13 +749,19 @@ function captureVideoFrame(source, timeSeconds) {
     };
 
     const draw = () => {
-      const w = video.videoWidth;
-      const h = video.videoHeight;
+      const srcW = video.videoWidth;
+      const srcH = video.videoHeight;
 
-      if (!w || !h) {
+      if (!srcW || !srcH) {
         fail("Não foi possível ler a imagem do vídeo.");
         return;
       }
+
+      // Scale down to avoid toBlob() failures on very large canvases (e.g. 4K video on Safari/iOS)
+      const MAX = 1280;
+      const scale = Math.min(1, MAX / srcW, MAX / srcH);
+      const w = Math.round(srcW * scale);
+      const h = Math.round(srcH * scale);
 
       const canvas = document.createElement("canvas");
       canvas.width = w;
@@ -764,8 +770,11 @@ function captureVideoFrame(source, timeSeconds) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, w, h);
 
+      const blobTimeout = setTimeout(() => fail("Timeout ao criar thumbnail."), 5000);
+
       canvas.toBlob(
         (blob) => {
+          clearTimeout(blobTimeout);
           if (!blob) {
             fail("Não foi possível criar a thumbnail.");
             return;
@@ -1605,7 +1614,13 @@ async function doUpload() {
 
     setText("aUpStatus", "A gerar thumbnail...");
 
-    const thumbBlob = await captureVideoFrame(file, thumbTime);
+    let thumbBlob;
+    try {
+      thumbBlob = await captureVideoFrame(file, thumbTime);
+    } catch (e) {
+      setText("aUpStatus", `Erro ao gerar thumbnail: ${e.message}`);
+      return;
+    }
 
     fd.append("thumbnail_time", String(thumbTime));
     fd.append("thumbnail", thumbBlob, "thumbnail.jpg");
