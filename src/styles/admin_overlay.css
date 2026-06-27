@@ -110,6 +110,11 @@ body.admin-on .image-container.dragging {
   opacity: 0.55;
 }
 
+/* Video elements capture pointer events by default, which blocks drag on the container */
+body.admin-on .image-container video {
+  pointer-events: none;
+}
+
 /* Add tile */
 body.admin-on .add-tile {
   border: 2px dashed rgba(0, 0, 128, 0.5);
