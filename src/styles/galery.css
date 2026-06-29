@@ -67,7 +67,11 @@ h2{
 }
 
 .container .logo {
-    margin: 20px 10px 1px 10px; 
+    margin: 20px 10px 1px 10px;
+}
+
+.logo-title {
+  font-size: 70px;
 }
 
 .container .heading h1{
@@ -151,18 +155,48 @@ h2{
     display: none;
   }
 
-  /* em mobile NÃO abrir por hover */
+  /* hover does not behave reliably on touch screens, so hide the submenu entirely; the parent link still navigates */
+  .submenu,
   ul li:hover .submenu {
-    opacity: 1;
-    z-index: auto;
-    margin-top: 0;
-    /* não mexer no max-height aqui */
+    display: none !important;
+    opacity: 0 !important;
   }
 
+  /* Logo and headings */
+  .logo-title {
+    font-size: 36px;
+  }
 
-  /* itens do submenu */
-  .submenu li a {
-    padding: 10px 0;
+  .container .heading h1 {
+    font-size: 24px;
+    padding: 8px 20px;
+    margin: 16px;
+  }
+
+  h2 {
+    font-size: 22px;
+    padding: 20px 0 8px 0;
+  }
+
+  /* Gallery columns: stack to single column on phones */
+  .container .box {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .container .box .dream {
+    width: 100%;
+    max-width: 480px;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-title {
+    font-size: 28px;
+  }
+
+  .container .heading h1 {
+    font-size: 20px;
   }
 }
 
@@ -430,9 +464,9 @@ h2{
   
   .footer-basic .social > a {
     font-size:24px;
-    width:40px;
-    height:40px;
-    line-height:40px;
+    width:48px;
+    height:48px;
+    line-height:48px;
     display:inline-block;
     text-align:center;
     border-radius:50%;

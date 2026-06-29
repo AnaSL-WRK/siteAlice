@@ -83,18 +83,46 @@ ul li:hover .submenu li a {
     display: none;
   }
 
-  /* em mobile NÃO abrir por hover */
+  /* hover does not behave reliably on touch screens, so hide the submenu entirely; the parent link still navigates */
+  .submenu,
   ul li:hover .submenu {
-    opacity: 1;
-    z-index: auto;
-    margin-top: 0;
-    /* não mexer no max-height aqui */
+    display: none !important;
+    opacity: 0 !important;
   }
 
+  /* Logo and headings */
+  .logo-title {
+    font-size: 36px;
+  }
 
-  /* itens do submenu */
-  .submenu li a {
-    padding: 10px 0;
+  .container .heading h1 {
+    font-size: 24px;
+    padding: 8px 20px;
+    margin: 16px;
+  }
+
+  /* Biography page: stack the Bootstrap two-column row */
+  .row {
+    flex-direction: column;
+  }
+
+  .row .col {
+    max-width: 100%;
+  }
+
+  .row .col img {
+    max-width: 100%;
+    margin-bottom: 30px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo-title {
+    font-size: 28px;
+  }
+
+  .container .heading h1 {
+    font-size: 20px;
   }
 }
 
@@ -109,7 +137,11 @@ ul li:hover .submenu li a {
 }
 
 .container .logo {
-    margin: 20px 10px 1px 10px; 
+    margin: 20px 10px 1px 10px;
+}
+
+.logo-title {
+  font-size: 70px;
 }
 
 .container .heading h1{
@@ -205,6 +237,22 @@ ul li:hover .submenu li a {
     align-items: center;
     justify-content: center;
     text-align: center;
+    max-width: 92%;
+  }
+
+  .painting-image {
+    max-width: 80%;
+    margin-right: 0;
+    margin-bottom: 16px;
+  }
+
+  .painting-description {
+    font-size: 20px !important;
+  }
+
+  .painting-year,
+  .painting-dimensions {
+    font-size: 16px !important;
   }
 }
 .painting-image {
@@ -271,9 +319,9 @@ ul li:hover .submenu li a {
   
   .footer-basic .social > a {
     font-size:24px;
-    width:40px;
-    height:40px;
-    line-height:40px;
+    width:48px;
+    height:48px;
+    line-height:48px;
     display:inline-block;
     text-align:center;
     border-radius:50%;
