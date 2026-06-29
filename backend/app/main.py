@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -25,14 +25,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.middleware("http")
-async def add_media_cache_headers(request: Request, call_next):
-    response = await call_next(request)
-    # UUID-named uploads never change, so browsers can cache them indefinitely.
-    if request.url.path.startswith("/media/") and response.status_code == 200:
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    return response
 
 app.include_router(public_router)
 app.include_router(admin_router)
