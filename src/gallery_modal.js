@@ -82,36 +82,20 @@ function createImageNode(item, overlayMode) {
     const videoUrl = resolveUrl(item.url);
     container.dataset.videoSrc = videoUrl;
 
-    const video = document.createElement('video');
-    video.src = videoUrl;
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'metadata';
-    video.className = 'video-thumb';
-    video.setAttribute('aria-label', item.title || 'Vídeo');
-
-    // Best option: use generated thumbnail image from backend.
     if (item.thumbnail_url) {
-      const thumbUrl = resolveUrl(item.thumbnail_url);
-      video.poster = thumbUrl;
-      container.dataset.thumbnailSrc = thumbUrl;
+      // Static thumbnail — zero video network cost until the modal opens.
+      const thumb = document.createElement('img');
+      thumb.src = resolveUrl(item.thumbnail_url);
+      thumb.alt = item.title || '';
+      thumb.loading = 'lazy';
+      thumb.className = 'video-thumb';
+      container.appendChild(thumb);
+    } else {
+      // No generated thumbnail: dark styled placeholder, still clickable.
+      const placeholder = document.createElement('div');
+      placeholder.className = 'video-thumb';
+      container.appendChild(placeholder);
     }
-
-    // Fallback: if no thumbnail image exists, seek to the chosen moment.
-    video.addEventListener('loadedmetadata', () => {
-      if (item.thumbnail_url) return;
-
-      const t = Number(item.thumbnail_time);
-      if (!Number.isFinite(t) || t <= 0) return;
-
-      try {
-        video.currentTime = Math.min(t, video.duration || t);
-      } catch {
-        // Ignore browsers that block seeking before enough metadata is ready.
-      }
-    });
-
-    container.appendChild(video);
 
     const play = document.createElement('div');
     play.className = 'video-play-indicator';
@@ -121,6 +105,7 @@ function createImageNode(item, overlayMode) {
     const img = document.createElement('img');
     img.src = resolveUrl(item.url);
     img.alt = item.title || '';
+    img.loading = 'lazy';
     container.appendChild(img);
   }
 
