@@ -115,7 +115,7 @@ function createImageNode(item, overlayMode) {
 
     const play = document.createElement('div');
     play.className = 'video-play-indicator';
-    play.textContent = '▶';
+    play.textContent = '▶︎'; // text variation selector — prevents blue emoji rendering
     container.appendChild(play);
   } else {
     const img = document.createElement('img');
@@ -219,7 +219,6 @@ function openVideoModal({ src, descHtml }) {
 
   modalContent.removeAttribute('style');
   modalContent.classList.add('is-video');
-  modalContent.style.height = '90%';
 
   modal.style.display = 'flex';
 
