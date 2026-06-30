@@ -99,7 +99,6 @@ function createImageNode(item, overlayMode) {
 
     const play = document.createElement('div');
     play.className = 'video-play-indicator';
-    play.textContent = '▶︎'; // text variation selector — prevents blue emoji rendering
     container.appendChild(play);
   } else {
     const img = document.createElement('img');

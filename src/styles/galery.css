@@ -400,12 +400,16 @@ h2{
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(255, 255, 255, 0.80);
-  font-size: 28px;
-  line-height: 1;
+  /* CSS triangle — no Unicode character, so no emoji rendering risk */
+  transform: translate(-40%, -50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 13px 0 13px 22px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.82);
+  filter: drop-shadow(0 1px 5px rgba(0, 0, 0, 0.50));
   pointer-events: none;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  font-size: 0;
 }
 
 .u-modal-content video {
