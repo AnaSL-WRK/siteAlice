@@ -335,6 +335,9 @@ export async function renderBox({
       else if (it.col === 2) col2.appendChild(node);
       else col3.appendChild(node);
     }
+
+    // Let the admin overlay (if active) re-attach drag/edit handlers to the new nodes.
+    box.dispatchEvent(new CustomEvent('gallery:rendered', { bubbles: true }));
   } catch (err) {
     if (keepStaticOnFail && hadStatic) {
       box.innerHTML = staticHTML;

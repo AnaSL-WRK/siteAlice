@@ -1026,10 +1026,12 @@ function ensureEditBadges(box) {
 }
 
 function setupDropZones(box) {
-  if (box.dataset.adminDropzones === "1") return;
-  box.dataset.adminDropzones = "1";
-
+  // Flag per column, not per box: renderBox() replaces the columns, so a
+  // box-level flag would leave the new columns without drop handlers.
   for (const colEl of box.querySelectorAll(".dream")) {
+    if (colEl.dataset.adminDropzone === "1") continue;
+    colEl.dataset.adminDropzone = "1";
+
     colEl.addEventListener("dragover", (e) => {
       if (!dragEl) return;
       if ((colEl.closest(".box")?.id || null) !== dragOriginBoxId) return;
@@ -1088,6 +1090,14 @@ function enhanceAllBoxes() {
     enhanceBoxWithRetry(box);
   }
 }
+
+// The page's own renderBox() may finish after admin mode turned on and replace
+// the gallery nodes; re-apply drag/edit handlers whenever a box re-renders.
+document.addEventListener("gallery:rendered", (e) => {
+  if (!adminOn || !document.body.classList.contains("admin-on")) return;
+  const box = e.target;
+  if (box && box.classList && box.classList.contains("box")) enhanceBox(box);
+});
 
 /* ----------------- Admin click interception (edit) ----------------- */
 let __adminCaptureInstalled = false;
