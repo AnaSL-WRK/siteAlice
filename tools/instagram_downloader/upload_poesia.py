@@ -24,7 +24,9 @@ import argparse
 import csv
 import getpass
 import os
+import re
 import sys
+from datetime import date
 from pathlib import Path
 
 try:
@@ -48,6 +50,38 @@ def save(path: Path, rows: list[dict]) -> None:
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k, "") for k in FIELDS})
+
+
+def normalize_date(value: str, filename: str) -> str:
+    """
+    Returns YYYY-MM-DD. Excel rewrites dates when the CSV is saved there
+    (e.g. 11/15/2026 or 15/11/2026), so accept those too; when day/month order
+    is ambiguous, the YYYY-MM-DD at the start of the filename decides.
+    """
+    value = (value or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return value
+
+    from_name = filename[:10] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", filename[:10]) else None
+    m = re.fullmatch(r"(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})", value)
+    if not m:
+        if from_name and not value:
+            return from_name
+        raise ValueError(f"invalid date {value!r}")
+
+    a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    candidates = []
+    for month, day in ((a, b), (b, a)):  # M/D/Y and D/M/Y
+        try:
+            candidates.append(date(y, month, day).isoformat())
+        except ValueError:
+            pass
+    candidates = list(dict.fromkeys(candidates))
+    if from_name in candidates:
+        return from_name
+    if len(candidates) == 1:
+        return candidates[0]
+    raise ValueError(f"ambiguous date {value!r} - write it as YYYY-MM-DD")
 
 
 def error_text(res: requests.Response) -> str:
@@ -77,6 +111,15 @@ def main() -> None:
     missing = [p for r in todo for p in (r["filename"], r["thumbnail"]) if not (base_dir / p).exists()]
     if missing:
         sys.exit("Missing files:\n  " + "\n  ".join(missing))
+
+    bad = []
+    for r in todo:
+        try:
+            r["date"] = normalize_date(r["date"], r["filename"])
+        except ValueError as e:
+            bad.append(f"{r['filename']}: {e}")
+    if bad:
+        sys.exit("Fix these dates in the CSV first:\n  " + "\n  ".join(bad))
 
     print(f"{len(todo)} video(s) to upload ({len(rows) - len(todo)} already done) -> {args.api}")
     for r in todo:
