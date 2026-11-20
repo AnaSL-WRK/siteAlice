@@ -1,3 +1,7 @@
 .env
 *.env
 .env.*
+
+# Instagram downloader output (videos are uploaded to the site, not committed)
+tools/instagram_downloader/downloads/
+tools/instagram_downloader/links.txt
