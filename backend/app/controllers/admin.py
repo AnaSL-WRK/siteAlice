@@ -126,14 +126,14 @@ def upload_foto(
     Upload para tabela fotografia:
     - category: estruturas/praia/natureza/tema_livre ou None
     - col: 1..3
-    - col_order: max+1 dentro de category + col
+    - col_order: 1 (topo); as restantes da mesma category + col descem uma posição
     """
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
 
     category = sanitize_category(category)
 
-    q = db.query(func.max(Fotografia.col_order)).filter(Fotografia.col == col)
+    q = db.query(Fotografia).filter(Fotografia.col == col)
 
     if category is None:
         q = q.filter(Fotografia.category.is_(None))
@@ -142,8 +142,9 @@ def upload_foto(
         q = q.filter(Fotografia.category == category)
         rel_dir = f"fotografia/{category}"
 
-    max_order = q.scalar() or 0
-    next_order = int(max_order) + 1
+    # New uploads go to the top of the column: shift the existing ones down.
+    q.update({Fotografia.col_order: Fotografia.col_order + 1}, synchronize_session=False)
+    next_order = 1
 
     file_path = save_upload_to_disk(
         file=file,
@@ -193,7 +194,7 @@ def upload_pintura(
     """
     Upload para tabela pinturas:
     - type: pinturas/mista
-    - col_order: max+1 dentro de type + col
+    - col_order: 1 (topo); as restantes do mesmo type + col descem uma posição
     """
     if col not in (1, 2, 3):
         raise HTTPException(status_code=400, detail="col must be 1,2,3")
@@ -215,13 +216,13 @@ def upload_pintura(
             detail="technique and dimensions are required",
         )
 
-    q = (
-        db.query(func.max(Pintura.col_order))
+    # New uploads go to the top of the column: shift the existing ones down.
+    (
+        db.query(Pintura)
         .filter(Pintura.type == type, Pintura.col == col)
+        .update({Pintura.col_order: Pintura.col_order + 1}, synchronize_session=False)
     )
-
-    max_order = q.scalar() or 0
-    next_order = int(max_order) + 1
+    next_order = 1
 
     rel_dir = "pinturas" if type == "pinturas" else "pinturas/mista"
 
