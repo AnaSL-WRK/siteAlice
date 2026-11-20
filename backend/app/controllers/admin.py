@@ -64,16 +64,16 @@ def was_provided(payload: BaseModel, field_name: str) -> bool:
     return field_name in getattr(payload, "__fields_set__", set())
 
 
-def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str, allowed: dict[str, str]) -> str:
+def save_upload_to_disk(file: UploadFile, rel_dir: str, media_root: str, allowed_mime: dict[str, str]) -> str:
     """
     Guarda em: <media_root>/<rel_dir>/<uuid>.<ext>
     Retorna file_path para BD: "media/<rel_dir>/<uuid>.<ext>"
     """
 
-    if file.content_type not in allowed:
+    if file.content_type not in allowed_mime:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
 
-    ext = allowed[file.content_type]
+    ext = allowed_mime[file.content_type]
     file_id = uuid.uuid4()
 
     abs_dir = os.path.join(media_root, rel_dir)
